@@ -111,6 +111,55 @@ superseded Flutter marketing-site note lives in git history and in
   runtime). Exact at every quadrant boundary, axis and diagonal;
   exhaustive sweeps pin fsin within 30 Q16.16 units and fatan2 within
   6 brads (≈ 0.03°) across all 65 536 headings.
+- `src/robot/` — Phase 4 task 2 (23 § 7.2): the parts catalog, chassis
+  aggregation and robot state.
+  - `parts-catalog.json` — the 16-part MVP catalog as DATA (20 T03.3,
+    the "parts catalog JSON" shared artifact of 23 § 2); `parts.ts` is
+    its schema and accessor: `parseCatalog` validates every row at load
+    (ids from the tier-2 `PART_ID` map, categories, stack limits,
+    per-kind effects), `aggregate` derives `ChassisStats` with power in
+    integer milliwatts (D6 — the 5 W draw is 5000, never 0, T6), hull HP
+    floored from mass x 1.5 (04 § 3.1), sensors best-range, weapons in
+    design order; `validateChassis` enforces the six chassis contracts
+    (8 slots, unknown ids, per-part stack limits, one drivetrain,
+    ≤ 50 kg, ≤ 80 W signed sum per D6) and reports every issue, not
+    just the first. Documented decisions: hover unit top speed set to
+    Mk-1 parity (the spec gives no number); stacking allowed exactly
+    where the spec defines a combination rule (weapons per 04 § 4.2,
+    shield sum per D7, storage, generators) and forbidden where it does
+    not (one drivetrain, one constructor).
+  - `design.ts` — `Design`/`Chassis`/`ChassisStats`, `CHASSIS_LIMITS`
+    (the G4 contracts in one owner, including D12's 1-3 designs per bot)
+    and `validateDesignList`.
+  - `robot.ts` — `Robot` state, `spawnRobot` (validate at the boundary,
+    full hull/shield/energy spawn state per 20 Phase 09, one rng-int
+    stream per robot identity via `createBotRng`, D5), `snapshotRobot`
+    (the 11 § 4 scalar view in wire millimetres, `hp` = hull + shield
+    per 04 § 4.1, ids `p1.<design>.<index>`).
+- `src/arena/` — Phase 4 task 1 (23 § 7.1): the world.
+  - `geometry.ts` — `buildArena(cfg, seed)`: 200 m x 200 m in Q16.16
+    (the DoD regression), 0.5 m perimeter walls, 8 pillars on the 3 x 3
+    cell lattice with the centre cell empty (exact integer lattice
+    arithmetic — pillar positions pinned), 12 perimeter spawn points
+    with a seed-derived Fisher-Yates order; `clampToArena`,
+    `isInWall`, `isInsidePillar` (strict overlap: touching is legal),
+    and `resolvePillarOverlap` with an exact integer radial push whose
+    away-from-zero rounding cannot land a raw short of the boundary.
+    Documented decisions: pillar radius 2000 mm (D15 names none);
+    build-time draws use a dedicated matchRng so they can never perturb
+    the runtime per-tick stream (D5).
+  - `biomass.ts` — the field of 400 x 1 kg cells (D15) with the
+    cluster rule of 23 § 7.1 / legacy/02 § 6 req 4: initial placement in
+    40 seeded clusters (10 cells within a 5 m jitter), and respawn as a
+    FIFO queue of biomass UNITS, each returning 300 ticks after
+    depletion to a free slot IN ITS REGION (a 10 x 10 grid of 20 m
+    squares). Unit population per region is conserved, so a returning
+    unit always finds a free slot, nothing is cancelled or overwritten,
+    and the field never leaks or creates biomass. `nearestAvailable`
+    gives perception/ its future food() query shape: inclusive boundary,
+    exact squared comparison, lowest index on ties.
+- `src/math/vec2.ts` — gains `distanceSquared` (exact bigint raw², the
+  saturation-free primitive nearest-within-range queries compare on).
 
 ## Commands
 

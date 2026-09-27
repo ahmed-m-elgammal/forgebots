@@ -150,6 +150,14 @@ export function distance(a: Vec2, b: Vec2): Fixed {
   return saturate(BigInt(isqrt(sumOfSquares(a.x - b.x, a.y - b.y))));
 }
 
+// Exact squared distance in raw-squared units. bigint on purpose: the
+// arena diagonal (283 m) saturates a Q16.16 square, and "nearest within
+// range" queries (biomass, later the sensors) must not round through
+// isqrt before comparing against an exact range boundary.
+export function distanceSquared(a: Vec2, b: Vec2): bigint {
+  return sumOfSquares(a.x - b.x, a.y - b.y);
+}
+
 // Inclusive: exactly-at-range counts as in range, decided on squared
 // integers so the boundary carries no sqrt rounding.
 export function inRange(a: Vec2, b: Vec2, range: Fixed): boolean {

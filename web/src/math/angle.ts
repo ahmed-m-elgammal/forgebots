@@ -29,6 +29,7 @@ const HALF_TURN = 32768;
 const QUARTER_TURN = 16384;
 
 export const ANGLE_PI: Angle = 32768 as Angle;
+export const ANGLE_ZERO: Angle = 0 as Angle;
 
 // Accepts any integer heading — including unbounded accumulators — and
 // normalises into (−π, π]. Every Angle in circulation satisfies that

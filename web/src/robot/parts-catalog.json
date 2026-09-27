@@ -1,0 +1,138 @@
+{
+  "version": 1,
+  "parts": [
+    {
+      "id": "mk1_engine",
+      "category": "mobility",
+      "massKg": 4,
+      "powerW": 5,
+      "stackLimit": 1,
+      "effect": { "kind": "mobility", "topSpeedMmPerSec": 2500 }
+    },
+    {
+      "id": "mk2_engine",
+      "category": "mobility",
+      "massKg": 8,
+      "powerW": 9,
+      "stackLimit": 1,
+      "effect": { "kind": "mobility", "topSpeedMmPerSec": 4000 }
+    },
+    {
+      "id": "hover_unit",
+      "category": "mobility",
+      "massKg": 6,
+      "powerW": 7,
+      "stackLimit": 1,
+      "effect": {
+        "kind": "mobility",
+        "topSpeedMmPerSec": 2500,
+        "accelPermyriad": 13000,
+        "ignoresFriction": true
+      }
+    },
+    {
+      "id": "short_radar",
+      "category": "sensor",
+      "massKg": 2,
+      "powerW": 1,
+      "stackLimit": 1,
+      "effect": { "kind": "radar", "rangeMm": 25000, "rateHz": 1 }
+    },
+    {
+      "id": "long_radar",
+      "category": "sensor",
+      "massKg": 6,
+      "powerW": 4,
+      "stackLimit": 1,
+      "effect": { "kind": "radar", "rangeMm": 80000, "rateHz": 1 }
+    },
+    {
+      "id": "directional_scanner",
+      "category": "sensor",
+      "massKg": 3,
+      "powerW": 2,
+      "stackLimit": 1,
+      "effect": { "kind": "scanner", "rangeMm": 40000, "coneDegrees": 30, "rateHz": 4 }
+    },
+    {
+      "id": "proximity",
+      "category": "sensor",
+      "massKg": 1,
+      "powerW": 0,
+      "stackLimit": 1,
+      "effect": { "kind": "proximity", "rangeMm": 2000, "rateHz": 10 }
+    },
+    {
+      "id": "blaster",
+      "category": "weapon",
+      "massKg": 4,
+      "powerW": 6,
+      "stackLimit": 8,
+      "effect": { "kind": "weapon", "damagePerHit": 12, "rangeMm": 30000, "cooldownTicks": 60 }
+    },
+    {
+      "id": "heavy_blaster",
+      "category": "weapon",
+      "massKg": 8,
+      "powerW": 12,
+      "stackLimit": 8,
+      "effect": { "kind": "weapon", "damagePerHit": 50, "rangeMm": 30000, "cooldownTicks": 120 }
+    },
+    {
+      "id": "grenade",
+      "category": "weapon",
+      "massKg": 5,
+      "powerW": 8,
+      "stackLimit": 8,
+      "effect": { "kind": "weapon", "damagePerHit": 20, "splashRadiusMm": 12000, "cooldownTicks": 360 }
+    },
+    {
+      "id": "light_shield",
+      "category": "defense",
+      "massKg": 3,
+      "powerW": 4,
+      "stackLimit": 8,
+      "effect": { "kind": "shield", "shieldHp": 20, "regenMilliHpPerSecond": 1000 }
+    },
+    {
+      "id": "heavy_shield",
+      "category": "defense",
+      "massKg": 7,
+      "powerW": 9,
+      "stackLimit": 8,
+      "effect": { "kind": "shield", "shieldHp": 50, "regenMilliHpPerSecond": 500 }
+    },
+    {
+      "id": "constructor",
+      "category": "construction",
+      "massKg": 10,
+      "powerW": 15,
+      "stackLimit": 1,
+      "effect": { "kind": "constructor", "buildRateMilliKgPerSecond": 2000 }
+    },
+    {
+      "id": "storage",
+      "category": "construction",
+      "massKg": 2,
+      "powerW": 0,
+      "stackLimit": 8,
+      "effect": { "kind": "storage", "bonusCarryCapacity": 25 }
+    },
+    {
+      "id": "solar_panel",
+      "category": "energy",
+      "massKg": 1,
+      "powerW": -5,
+      "stackLimit": 8,
+      "effect": { "kind": "generator" }
+    },
+    {
+      "id": "reactor",
+      "category": "energy",
+      "massKg": 8,
+      "powerW": -10,
+      "stackLimit": 8,
+      "effect": { "kind": "generator" }
+    }
+  ]
+}
