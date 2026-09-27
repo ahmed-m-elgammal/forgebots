@@ -9,6 +9,26 @@ two disagree, the spec is wrong and gets fixed — do not silently
 diverge. If a spec is ambiguous, the answer lives in
 `spec-kit/22-DECISIONS.md`; read it before implementing anything.
 
+**Skill set** lives in `.opencode/skills/` — 26 skills from
+`gamedev-skills/awesome-gamedev-agent-skills`, covering Godot 4 plus
+the cross-engine disciplines this project uses. Engine skills for
+Unity, Unreal, Roblox, Bevy, pygame, Phaser, PixiJS and three.js are
+**deliberately not installed**; this project does not use them.
+
+Two upstream skills are excluded on purpose and must not be
+reinstalled:
+
+| Skill | Why not |
+|---|---|
+| `game-ai` | Contradicts the DSL in `spec-kit/09-AI-DSL.md`. |
+| `ai-behavior-trees-utility-ai` | `22-DECISIONS.md` D4 rules out behaviour trees in favour of the tree-walking IR VM. |
+
+The upstream `router` skill is also not installed: its routing table
+references 162 skills that are absent here, so it would dispatch to
+skills that do not exist. Pick from the `skill` tool's own list
+instead — at 26 entries the list is small enough to choose from
+directly.
+
 ---
 
 ## 0. Non-negotiables
