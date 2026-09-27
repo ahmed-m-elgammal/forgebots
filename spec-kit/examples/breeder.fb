@@ -1,0 +1,18 @@
+;; ForgeBots canonical "Breeder" tutor bot — Mission 3 in the
+;; onboarding ladder.
+;;
+;; Collects biomass and converts it into child bots via the Constructor.
+;; See: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.5
+;;
+;; Hardware: mk1_engine, radar_short, constructor, solar, storage
+
+(defn step []
+  (let ((f (food)))
+    (if (some? f)
+        (move (/ (- (food-x f) (self.x)) 60)
+              (/ (- (food-y f) (self.y)) 60))
+        (do (eat)
+            (if (>= (self.biomass) 5)
+                (build 0))))))
+
+(every-tick step)

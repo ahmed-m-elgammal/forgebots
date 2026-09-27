@@ -36,6 +36,12 @@ classic Grobots (Devon & Warren Schudy, GPL).
     sheet, mission ladder, bounce-back.
 19. **[18-LIVE-OPS-AND-TELEMETRY.md](18-LIVE-OPS-AND-TELEMETRY.md)** —
     seasons, patch cadence, KPIs, dashboards, telemetry events.
+20. **[19-STARTER-BOTS-AND-LIBRARY.md](19-STARTER-BOTS-AND-LIBRARY.md)** —
+    8 starter bots (Pebble, Glow, Drifter, Pouncer, Breeder, Reaper,
+    Swarm-Mind, Sentinel), pattern library, behavioural tests.
+21. **[20-IMPLEMENTATION-PLAN.md](20-IMPLEMENTATION-PLAN.md)** —
+    14-phase build plan for the engine/logic/physics stack (no UI/UX),
+    each phase with spec deps, tasks, sub-tasks, AI-agent context.
 
 ## How the docs split responsibilities
 
@@ -43,6 +49,8 @@ classic Grobots (Devon & Warren Schudy, GPL).
 - **Docs 16–18** are the *game-feel additions* added after a critical
   review. They fill gaps that were missing from the engineering spec
   but matter for whether players stay.
+- **Docs 19–20** are the *execution layer*. 19 is what we ship
+  pre-built; 20 is how we build the engine.
 
 | Doc | Owns |
 |---|---|
@@ -50,13 +58,16 @@ classic Grobots (Devon & Warren Schudy, GPL).
 | `16-JUICE-AND-AUDIO.md` | Motion language, particles, SFX catalog, music strategy |
 | `17-ONBOARDING.md` | First 60 seconds, mission ladder, bounce-back, first-loss UX |
 | `18-LIVE-OPS-AND-TELEMETRY.md` | Seasons, patches, KPIs, telemetry, dashboards |
+| `19-STARTER-BOTS-AND-LIBRARY.md` | Starter bots, pattern library, behavioural tests |
+| `20-IMPLEMENTATION-PLAN.md` | Phased build plan, AI-agent prompts, deps |
 
 If you're a new contributor:
-- Engineers start at `05` → `11`.
-- Designers start at `04` → `17`.
+- Engineers start at `05` → `11`, then follow `20` for execution.
+- Designers start at `04` → `17`, then `19`.
 - Artists start at `13` → `16`.
 - Product / ops start at `18` → `15` (risks).
 - Founder reads `00` → all (skim-mode).
+- AI coding agents: read the relevant section of `20` for prompts.
 
 ## Code that lives next to this spec kit
 
@@ -73,9 +84,8 @@ forgebots/
 
 ## Status
 
-- Spec kit: **v0.2** (added juice/audio, onboarding, live-ops, plus
-  CI/CD + mobile perf budgets in `05`, navigation map in `13`, player
-  experience risks in `15`).
+- Spec kit: **v0.3** (added starter bot library + 14-phase engine
+  implementation plan; UI/UX remains its own work stream).
 - Implementation: **not started** (deferred per planning phase).
 
 Last updated: 2026-09-27.

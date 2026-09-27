@@ -1,18 +1,23 @@
-;; Drifter — scripted opponent shipped with the game.
+;; ForgeBots canonical "Drifter" tutor bot.
 ;;
-;; Picks a random heading every 30 ticks and moves forward.
-;; Collects biomass if it sees any.
+;; Walks toward the nearest biomass. Falls back to a random heading
+;; every 30 ticks if nothing is in range.
+;; See: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.3
+;;
+;; Hardware (in the chassis.json next to this bot):
+;;   mk1_engine, radar_long, solar
 
-(defn pick-heading ()
+(defn pick-heading []
   (let ((h (* 60 (time))))
     (if (== (mod h 1800) 0)
         (rng-int 65536)
         h)))
 
-(defn step ()
+(defn step []
   (let ((f (food)))
     (if (some? f)
-        (move 1 1)
+        (move (/ (- (food-x f) (self.x)) 60)
+              (/ (- (food-y f) (self.y)) 60))
         (move (cos (pick-heading)) (sin (pick-heading))))))
 
 (every-tick step)
