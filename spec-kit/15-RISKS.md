@@ -85,3 +85,61 @@ week, it's cut. Better to ship a smaller game than to ship a broken one.
 - What's the match length distribution? (Drives balance patches.)
 - What's the crash-free sessions %? (Drives mobile QA.)
 - What's the 1-day, 7-day, 30-day retention? (Drives everything.)
+
+## 9. Player Experience Risks
+
+These are the risks unique to a *game* (vs a generic app). They don't
+kill you on day 1 — they kill you on day 30.
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| **Onboarding is too slow / unclear** | High | Critical | 60-second beat sheet (`17-ONBOARDING.md` § 2); pre-filled starter bot; bounce-back after 2 losses; measure funnel weekly |
+| **First PvP loss feels unfair** | High | High | Mechanical advice card on loss, generated from event log; see `17-ONBOARDING.md` § 4.2 |
+| **Match feels sterile without juice** | Medium | High | Dedicated juice/audio brief (`16-JUICE-AND-AUDIO.md`); hit-stop, camera shake, particles per event; music adaptive |
+| **Game feels too slow (boring matches)** | Medium | High | 90 s median match; tunable via balance.json; tracked via match length distribution |
+| **Game feels too hard (churn)** | Medium | Critical | 3 mission ladder with bounce-back; ghost bots in matchmaking for new players; Elo ±200 in first 5 matches |
+| **Visual editor (Blockly) too cramped on phone** | High | High | Mobile-first sizing; fall back to text-only editor; consider an "edit on web, sync to mobile" path post-MVP |
+| **Players feel "I have no chance" against top bots** | Medium | High | Elo matchmaking + decay; seasonal soft-reset; casual vs ranked modes (post-MVP) |
+| **Replay viewer too complex** | Low | Medium | Default speed 1×, simple timeline; advanced stats overlay off by default; iteration of UX post-launch |
+| **No content after first 10 matches** | High | High | 3 AI opponents shipped MVP; ladder provides infinite social content; seasonal arena + AI per 12 weeks |
+| **Audio is annoying / overpowering** | Low | Medium | Ducking, mute, SFX-only mode; user testing on first 50 players |
+| **Localization missing at launch** | Medium | Medium | EN-only MVP is fine; extraction strategy baked in from day 1; add locales post-MVP |
+| **Accessibility gaps block a player segment** | Medium | Medium | WCAG AA + reduce motion + tap targets ≥ 44 pt; colorblind mode; see `13-UI-UX-WIREFRAMES.md` § 11 |
+| **Push notifications become spam** | Medium | Medium | ≤ 1 push/week; quiet hours respected; opt-in only; frequency cap |
+
+### 9.1 The "fun ceiling" problem
+
+A bot-programming game has a ceiling — once you've mastered the
+DSL, what's left? Mitigations:
+
+- **Seasonal content** — new arena + new AI each season.
+- **Ladder** — social competition has no ceiling.
+- **Tournament tooling** (v0.2) — community-run brackets.
+- **Creative expression** — shareable bot code, replays, GIFs.
+- **Mastery depth** — even at high Elo, players discover new strategies.
+
+The fun ceiling is real, but it's *out-year* problem, not MVP. We
+just need to make sure the ceiling is at least 6 months out for an
+average player.
+
+### 9.2 "The first loss is the most important moment"
+
+Players who lose their first PvP match and bounce back to try again
+have 3× the D7 retention of players who lose and quit. We measure
+this metric (see `18-LIVE-OPS-AND-TELEMETRY.md` § 3.3) and intervene
+when it drops.
+
+## 10. Open risks requiring a human decision
+
+These need a real call from the founder, not a spec:
+
+- **Solo vs team ship.** MVP assumes one engineer + one artist. If
+  the founder is alone, cut scope (text editor only, no Blockly).
+- **Pricing launch strategy.** Free-to-play vs $4.99 upfront? Hard
+  call; affects monetization ramp.
+- **Marketing budget.** Can we afford $5k of TikTok spend in launch
+  week? If not, organic-only (slower ramp).
+- **Localization day-1.** Are we comfortable shipping EN-only for 6
+  months? (Yes — see `14-MONETIZATION.md`.)
+
+Document the call, ship the MVP, revisit.

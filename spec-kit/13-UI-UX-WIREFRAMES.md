@@ -3,6 +3,10 @@
 > Wireframes are described textually here. A visual page mock lives at
 > `/workspace/forgebots/spec-kit/wireframes/` once we generate the
 > screenshots (HTML mockups).
+>
+> **For onboarding flow (first 60 seconds, mission ladder, bounce-back),
+> see `17-ONBOARDING.md`.** This doc covers the steady-state screens
+> only; the onboarding doc covers what players see on day 1.
 
 ## 1. Design principles
 
@@ -198,3 +202,147 @@ Every screen has a designed empty state with a one-line CTA. Examples:
 - Bot list empty → "Forge your first bot"
 - Ladder empty → "Be the first to reach the top"
 - Match history empty → "Submit a bot to start your record"
+
+## 13. Navigation map
+
+The full screen-to-screen graph for steady-state use (not onboarding):
+
+```
+                    ┌────────────┐
+                    │   Splash   │
+                    └─────┬──────┘
+                          │
+                  ┌───────┴────────┐
+                  ▼                ▼
+            ┌──────────┐     ┌──────────┐
+            │  Login   │     │  Signup  │
+            └────┬─────┘     └────┬─────┘
+                 └────────┬───────┘
+                          ▼
+                   ┌────────────┐
+                   │ Dashboard  │◄────────────┐
+                   └──┬─────┬───┘             │
+              ┌───────┘     └──────┐          │
+              ▼                    ▼          │
+       ┌─────────────┐       ┌─────────────┐  │
+       │  Bot list   │       │ Ladder tab  │  │
+       └────┬────────┘       └──────┬──────┘  │
+            │                       │         │
+            ▼                       ▼         │
+       ┌─────────────┐       ┌─────────────┐  │
+       │ Bot builder │──────►│ AI editor   │  │
+       │ (chassis)   │       │ (visual/    │  │
+       └──────┬──────┘       │  text)      │  │
+              │              └──────┬──────┘  │
+              ▼                     │         │
+       ┌─────────────┐              ▼         │
+       │ Save dialog │       ┌─────────────┐  │
+       └──────┬──────┘       │ Preview run │──┘
+              ▼              └─────────────┘
+       ┌─────────────┐
+       │ Matchmaking │
+       └──────┬──────┘
+              ▼
+       ┌─────────────┐
+       │ Replay      │
+       │ viewer      │──► Share / Back to dashboard
+       └──────┬──────┘
+              ▼
+       ┌─────────────┐
+       │ Result +    │
+       │ advice card │
+       └─────────────┘
+```
+
+### 13.1 Persistent UI elements
+
+Present on **every** screen after login:
+
+- **Top-left:** back button (or logo if no parent).
+- **Top-right:** account avatar → opens Settings.
+- **Bottom (mobile):** tab bar with `Dashboard / Bots / Ladder / Cosmetics / Settings`.
+- **Corner:** persistent "live state" pill showing your top bot's
+  status (e.g. `● Idle • Elo 1247`). Tapping it jumps to the bot.
+
+### 13.2 Modal rules
+
+- **One modal at a time.** No stacked dialogs.
+- **Tap outside or back gesture dismisses** unless the modal is a
+  blocking confirmation (e.g. "Delete bot?").
+- **Loading states are not modals** — use inline skeletons.
+
+### 13.3 First 60 seconds reference
+
+For the onboarding beat sheet (cinematic timings, pre-filled bots,
+tooltip placement, audio silence rule), see `17-ONBOARDING.md` § 2.1.
+That doc owns the day-1 experience; this doc owns everything after.
+
+## 14. Replay viewer (detailed)
+
+The viewer is the most screen-time surface in the game. Worth detailing.
+
+### 14.1 Controls
+
+```
+┌────────────────────────────────────────────┐
+│ Slasher vs Replicator · tick 612 / 1500    │
+├────────────────────────────────────────────┤
+│                                            │
+│   [200×200 arena, top-down]                │
+│                                            │
+│      . s . . . . r .                       │
+│      . . . . . . . r                       │
+│      . . . . . . . .                       │
+│                                            │
+│   blue = your side, red = enemy            │
+│   biomass cells as green dots              │
+│   shots as fading yellow streaks           │
+├────────────────────────────────────────────┤
+│ ▶ ⏸ ⏮ ⏭    speed: 0.25x  1x  2x  4x       │
+│                                            │
+│ timeline ▬▬▬▬●▬▬▬▬▬▬▬▬▬▬▬                 │
+│           612                              │
+│                                            │
+│ Event log (this tick):                     │
+│  • scout.0 fired blaster → tank.1 (12)    │
+│  • tank.1 biomass taken +1                 │
+│                                            │
+│ [Share] [Bookmark] [GIF export]            │
+└────────────────────────────────────────────┘
+```
+
+### 14.2 Camera modes
+
+- **Default:** free orbit around the centre of mass of the action
+  (auto-pans to whichever side is active).
+- **Follow bot:** tap a bot to follow it. Tap empty arena to release.
+- **Top-down:** locked top-down view for tactical analysis.
+
+### 14.3 Stats overlay (toggle)
+
+A small panel that shows, in real time as the match plays:
+
+- HP per bot
+- Energy per bot
+- Biomass held
+- Damage dealt
+- Biomass collected
+
+Stats overlay is **off by default** for new players, **on by default**
+for players above 50 matches.
+
+### 14.4 Sharing
+
+- **Share link:** generates a public URL, server stores replay for 30 days.
+- **Bookmark:** adds to "My Replays" list, kept forever.
+- **GIF export:** client-side rendering of the replay to a 5–10s GIF,
+  capped at 5 MB.
+
+## 15. Anti-patterns we reject
+
+- ❌ Auto-playing music on first launch.
+- ❌ Forced tutorials blocking the menu.
+- ❌ Pop-up modals mid-match.
+- ❌ Confirmation dialogs for reversible actions.
+- ❌ Two CTAs competing on the same screen.
+- ❌ Settings hidden more than two taps away.

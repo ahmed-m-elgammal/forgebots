@@ -125,7 +125,82 @@ once matches take >5 s wall time.
 | Unity, Unreal | Heavier, cost, no need |
 | Direct port of original C++ | License (see 02-LICENSING.md) |
 
-## 8. Risks of this stack
+## 8. CI/CD pipeline
+
+### 8.1 Tools
+
+- **CI:** GitHub Actions, free tier.
+- **Mobile builds:** Godot export templates installed on runners.
+- **Simulator golden tests:** run on every PR; failing the replay-hash
+  check fails the PR.
+- **Mobile smoke tests:** Godot integration test scene, runs headless
+  on Android emulator + iOS simulator in CI.
+- **Store distribution:** Fastlane for Play Store; `xcrun altool` →
+  Transporter for App Store; both from CI.
+
+### 8.2 Pipeline stages
+
+```
+PR  →  Lint + TypeScript compile (30 s)
+    →  Simulator unit tests + golden replay hash (60 s)
+    →  Vitest integration tests (90 s)
+    →  Godot headless smoke scene (90 s)
+    →  Mobile export dry-run (Android APK + iOS IPA unsigned, 8 min)
+
+main  →  Tag (semver)
+     →  Sign (mobile)
+     →  Upload to TestFlight + Play internal track
+     →  Slack notification with build URL
+
+weekly  →  Beta cohort (closed TestFlighters / Play internal)
+```
+
+### 8.3 Versioning
+
+- **Semver** for the client + server: `MAJOR.MINOR.PATCH`.
+- Build number (mono-incrementing int) ships separately.
+- `sim_version` (semver) is stored in every replay; breaking changes
+  bump MAJOR and ship a replay migration (see `11-REPLAY-FORMAT.md`).
+
+### 8.4 Secrets
+
+- Code signing keys in GitHub Encrypted Secrets.
+- Apple Developer key in 1Password CLI → injected at build time.
+- Never in `.env` files committed to the repo.
+
+## 9. Mobile performance budgets
+
+Concrete numbers, not vibes. CI must catch regressions.
+
+| Metric | Target (iPhone 12) | Target (Pixel 5) |
+|---|---|---|
+| Cold start (splash → dashboard) | p50 ≤ 2.0 s, p95 ≤ 3.5 s | p50 ≤ 2.5 s, p95 ≤ 4.0 s |
+| Steady-state FPS | 60 (vsync) | 60 (vsync) |
+| Frame time p95 | ≤ 18 ms | ≤ 18 ms |
+| Match scene draw calls | ≤ 80 | ≤ 80 |
+| Texture memory resident | ≤ 50 MB | ≤ 50 MB |
+| App install size | ≤ 80 MB | ≤ 80 MB |
+| App size on disk (post-update) | ≤ 150 MB | ≤ 150 MB |
+| Battery drain (10-min session) | ≤ 4% | ≤ 4% |
+| Crash-free sessions | ≥ 99.5% | ≥ 99.5% |
+| ANR / watchdog rate | < 0.05% | < 0.05% |
+
+### 9.1 How we measure
+
+- **In-engine:** Godot's built-in profiler on debug builds.
+- **On device:** Firebase Performance + custom Godot exporter.
+- **In CI:** a smoke scene runs every PR; if draw calls or texture
+  memory regresses > 10% vs main, the PR fails.
+- **In production:** weekly report from Firebase; alert if any budget
+  is exceeded by 20% for 2 consecutive weeks.
+
+### 9.2 Thermal handling
+
+- On thermal warning (Godot exposes `OS.get_thermal_state()`), drop
+  particle count by 50% and reduce audio sample rate.
+- On thermal critical, drop to 30 fps cap and disable bloom/glow.
+
+## 10. Risks of this stack
 
 - **Godot mobile polish is still maturing.** Mitigation: budget 2 weeks
   of mobile-only QA in the MVP.
