@@ -1,0 +1,24 @@
+;; Sample ForgeBots program — a simple hunter.
+;;
+;; Moves toward the nearest biomass cell. When an enemy is in scanner
+;; range (40 m, 30° cone), aims and fires.
+;;
+;; Note: in let bindings, each binding is (name expr) and the bindings
+;; list is enclosed in one outer pair of parens.
+
+(defn move-toward-food ()
+  (let ((f (food)))
+    (if (some? f)
+        (let ((dx (- (food-x f) (self.x)))
+              (dy (- (food-y f) (self.y))))
+          (move (/ dx 60) (/ dy 60)))
+        (move 1 0))))
+
+(defn combat-step ()
+  (let ((e (radar)))
+    (if (some? e)
+        (do (aim 0)
+            (fire))
+        (move-toward-food))))
+
+(every-tick combat-step)

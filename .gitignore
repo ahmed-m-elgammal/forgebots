@@ -1,0 +1,17 @@
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*~
+
+# Build artefacts (none yet, but reserve for future code)
+node_modules/
+dist/
+build/
+*.log
+.env
+.env.local
+
+# OS scratch
+Thumbs.db
