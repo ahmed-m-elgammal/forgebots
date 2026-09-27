@@ -15,28 +15,28 @@
 ```
 ┌──────────────────────────────────────────────────────────┐
 │  Client (Android, iOS, Windows, macOS, Linux)            │
-│  Godot 4.3.x • C# (.NET 8) • GDScript for small bits     │
+│  Godot 4.7.x • C# (.NET 10) • GDScript for small bits    │
 │  Custom UI + scene tree + deterministic preview sim      │
 └──────────────────────────────────────────────────────────┘
                               │ HTTPS
                               ▼
 ┌──────────────────────────────────────────────────────────┐
 │  Edge / API                                              │
-│  Node.js 22 + Fastify 4 + TypeScript 5                   │
+│  Node.js 24 + Fastify 5 + TypeScript 7                   │
 │  Auth, matchmaking, account, bot CRUD, replay fetch      │
 └──────────────────────────────────────────────────────────┘
                               │ AMQP / pg-boss
                               ▼
 ┌──────────────────────────────────────────────────────────┐
 │  Simulation worker                                       │
-│  Node.js 22 + TypeScript 5 (same code as API)            │
+│  Node.js 24 + TypeScript 7 (same code as API)            │
 │  Runs the deterministic simulator headlessly             │
 │  Embeds the ForgeBots VM (sandboxed bytecode runner)     │
 └──────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌──────────────────────────────────────────────────────────┐
-│  Postgres 16                                             │
+│  Postgres 18                                             │
 │  Users, bots, matches, replays (JSONB), seasons          │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -49,7 +49,7 @@
   pipeline is mature since Godot 4.0.
 - **Headless server export** lets us share a *visual* scene tree with the
   preview-replay viewer, but the actual authoritative sim runs on Node.
-- **C# (Mono/.NET 8)** gives us types and modern tooling.
+- **C# (.NET 10 LTS)** gives us types and modern tooling.
 - **MIT licensed** — no per-seat fees.
 - **Determinism-friendly** — fixed-step physics, custom integration loop.
 
@@ -64,7 +64,7 @@
 - Could also be embedded in the Godot client (via WebSocket-driven
   preview panel) — but the MVP keeps that simple.
 
-### 3.3 DB = Postgres 16
+### 3.3 DB = Postgres 18
 
 - Familiar, cheap, reliable, JSONB for replays, row-level security for
   privacy, easy scaling via PgBouncer.
@@ -78,18 +78,23 @@
 
 | Layer | Choice | Version |
 |---|---|---|
-| Client | Godot | 4.3.x |
-| Client logic | C# | .NET 8 |
-| Server | Node.js | 22 LTS |
-| Server language | TypeScript | 5.5+ |
-| HTTP framework | Fastify | 4.x |
-| DB | Postgres | 16 |
+| Client | Godot | 4.7.x |
+| Client logic | C# | .NET 10 |
+| Server | Node.js | 24 LTS |
+| Server language | TypeScript | 7.x (native compiler) |
+| HTTP framework | Fastify | 5.x |
+| DB | Postgres | 18 |
 | ORM / query builder | Drizzle ORM | latest |
-| Validation | Zod | 3.x |
-| Tests | Vitest | 2.x |
+| Validation | Zod | 4.x |
+| Tests | Vitest | 5.x |
 | Simulator tests | Vitest + custom harness | — |
 | CI | GitHub Actions | — |
 | Container | Docker + Compose | — |
+
+> **Version refresh (2026-09):** all majors bumped to current stable —
+> Godot 4.7, .NET 10 LTS, Node.js 24 LTS, TypeScript 7 (native Go
+> compiler, ~10x faster builds), Fastify 5, Postgres 18, Zod 4, Vitest 5,
+> pnpm 12. No architectural changes; API-level code is unaffected.
 
 ## 5. Hosting & infra
 
@@ -135,8 +140,9 @@ once matches take >5 s wall time.
   check fails the PR.
 - **Mobile smoke tests:** Godot integration test scene, runs headless
   on Android emulator + iOS simulator in CI.
-- **Store distribution:** Fastlane for Play Store; `xcrun altool` →
-  Transporter for App Store; both from CI.
+- **Store distribution:** Fastlane for Play Store; `xcrun notarytool` →
+  Transporter for App Store; both from CI. (`altool` is retired by
+  Apple; notarytool is the current standard.)
 
 ### 8.2 Pipeline stages
 

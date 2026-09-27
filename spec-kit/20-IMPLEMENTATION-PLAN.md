@@ -132,7 +132,7 @@ APIs in sim code).
 - **T01.6** — Husky pre-commit: lint + typecheck.
 
 ### 3.3 Sub-tasks
-1. `pnpm init` → set `packageManager` to `pnpm@9`.
+1. `pnpm init` → set `packageManager` to `pnpm@12`.
 2. Add `workspaces: ["simulator", "server"]`.
 3. Create `tsconfig.base.json` with `strict`, `noUncheckedIndexedAccess`,
    `verbatimModuleSyntax`, `isolatedModules`.

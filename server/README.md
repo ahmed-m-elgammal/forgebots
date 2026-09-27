@@ -6,7 +6,7 @@
 > are green (§ 18.3: "writing the server before Phase 14" is an
 > anti-pattern — the replay format is the contract).
 
-Node.js 22 LTS + TypeScript 5 + Fastify 4 + Postgres 16 + Drizzle ORM +
+Node.js 24 LTS + TypeScript 7 + Fastify 5 + Postgres 18 + Drizzle ORM +
 Zod ([`05-TECH-STACK.md`](../spec-kit/05-TECH-STACK.md) § 2, § 4).
 Hosts the REST + WebSocket API, matchmaking/Elo domain logic, and the
 sim workers that run the deterministic simulator headlessly and write

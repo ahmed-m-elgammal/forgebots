@@ -5,7 +5,7 @@
 > [`spec-kit/12-MVP-ROADMAP.md`](../spec-kit/12-MVP-ROADMAP.md) (Godot
 > client skeleton).
 
-Godot 4.3.x + C# (.NET 8), GDScript for small bits
+Godot 4.7.x + C# (.NET 10), GDScript for small bits
 ([`05-TECH-STACK.md`](../spec-kit/05-TECH-STACK.md) § 2). One export
 covers Android, iOS, Windows, macOS, Linux. The client only submits
 *intent* (bot IR + match request); the server is authoritative.
