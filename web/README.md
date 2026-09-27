@@ -46,6 +46,33 @@ superseded Flutter marketing-site note lives in git history and in
     `createBotRng` / `deriveSeed` per D5, rejection-sampled `nextInt`
     matching the DSL `(rng-int n)` contract. Golden sequences pin the
     algorithm against drift.
+- **Phase 2 `src/program/`** — the DSL compiler, one file per 23 § 5 and
+  `AGENTS.md` § 9 resolution 2 (source → verified IR is one
+  responsibility; the 300-line target is deliberately overridden):
+  - `compiler.ts` — `tokenize` (every token carries line/column; parens
+    and brackets interchangeable per D21; `;` comments; float and string
+    literals rejected at the lexer, 10 § 2.2), the recursive-descent
+    parser (09 § 2.2 forms plus the 23 § 5.2 `set`/`repeat`/`return`
+    spellings; `cond` desugars to nested ifs with a required trailing
+    else per D21), lowering to the JSON IR (D2 — no bytecode, nodes
+    shaped like the 09 § 3 example, source positions ride along as a
+    non-enumerable property so the IR stays byte-stable), the verifier
+    (all nine 09 § 5 rules: DAG-only calls, literal loop bounds, the
+    1000-cycle static estimate, 64-slot stack, 32 locals per frame,
+    Option discipline with some?-flow analysis, identifier resolution,
+    the entry-point contract, part preconditions as chassis-context
+    warnings), the 09 § 4 cost table (single owner; Phase 3's VM
+    charges the same numbers), and `formatDiagnostic` — the i18n seam
+    where the editor swaps message catalogs.
+  - `compile(src, options)` is the public entry point; `tokenize` and
+    `formatDiagnostic` are exported for the editor's gutter and squiggles.
+  - `compiler.test.ts` + `golden-examples.test.ts` — 136 tests in the
+    six categories. The golden file compiles every
+    `spec-kit/examples/*.fb` (19 § 5.3), asserts byte-stable IR across
+    repeated compiles and JSON round-trip (20 T05.5), and carries the
+    starter-bot T6 regressions: pouncer/sentinel measure `dist` from the
+    bot, breeder's cond priority order, drifter's `move-at`/`rng-int`
+    fallback, reaper's direct `enemy()`, and sentinel's 100 000 mm centre.
 
 ## Commands
 
