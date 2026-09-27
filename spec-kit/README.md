@@ -42,6 +42,12 @@ classic Grobots (Devon & Warren Schudy, GPL).
 21. **[20-IMPLEMENTATION-PLAN.md](20-IMPLEMENTATION-PLAN.md)** —
     14-phase build plan for the engine/logic/physics stack (no UI/UX),
     each phase with spec deps, tasks, sub-tasks, AI-agent context.
+22. **[21-LOCALIZATION-AND-NOTIFICATIONS.md](21-LOCALIZATION-AND-NOTIFICATIONS.md)** —
+    string extraction (ARB source-of-truth, CI lint), translation
+    workflow (Lokalise/POEditor), RTL layout for Arabic launch
+    (EN+AR), Godot TranslationServer wiring, 6-channel push
+    notification strategy with frequency caps, opt-in UX, deep
+    links, and per-channel opt-out.
 
 ## How the docs split responsibilities
 
@@ -60,6 +66,7 @@ classic Grobots (Devon & Warren Schudy, GPL).
 | `18-LIVE-OPS-AND-TELEMETRY.md` | Seasons, patches, KPIs, telemetry, dashboards |
 | `19-STARTER-BOTS-AND-LIBRARY.md` | Starter bots, pattern library, behavioural tests |
 | `20-IMPLEMENTATION-PLAN.md` | Phased build plan, AI-agent prompts, deps |
+| `21-LOCALIZATION-AND-NOTIFICATIONS.md` | L10n pipeline (EN+AR launch), RTL, push strategy |
 
 If you're a new contributor:
 - Engineers start at `05` → `11`, then follow `20` for execution.
@@ -84,8 +91,8 @@ forgebots/
 
 ## Status
 
-- Spec kit: **v0.3** (added starter bot library + 14-phase engine
-  implementation plan; UI/UX remains its own work stream).
+- Spec kit: **v0.4** (added localization pipeline + push notification
+  strategy; EN+AR launch ready).
 - Implementation: **not started** (deferred per planning phase).
 
 Last updated: 2026-09-27.
