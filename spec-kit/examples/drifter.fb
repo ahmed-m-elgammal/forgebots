@@ -1,23 +1,28 @@
-;; ForgeBots canonical "Drifter" tutor bot.
+;; ForgeBots canonical "Drifter" tutor bot — Mission 1 in the onboarding
+;; ladder.
 ;;
-;; Walks toward the nearest biomass. Falls back to a random heading
-;; every 30 ticks if nothing is in range.
-;; See: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.3
+;; Walks toward the nearest biomass cell. Falls back to a fresh random
+;; heading once per revolution if nothing is within food() range
+;; (5 000 mm — see 22-DECISIONS.md D16).
 ;;
-;; Hardware (in the chassis.json next to this bot):
+;; Spec: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.3
+;; Units: DSL lengths are integer millimetres; move/cos/sin are Q16.16
+;;        with 65536 = 100% of top speed.
+;;
+;; Hardware (chassis.json next to this bot):
 ;;   mk1_engine, long_radar, solar
 
 (defn pick-heading []
-  (let ((h (* 60 (time))))
-    (if (== (mod h 1800) 0)
+  (let ((h (* 2190 (time))))
+    (if (== (mod h 65536) 0)
         (rng-int 65536)
         h)))
 
 (defn step []
   (let ((f (food)))
     (if (some? f)
-        (move (/ (- (food-x f) (self.x)) 60)
-              (/ (- (food-y f) (self.y)) 60))
-        (move (cos (pick-heading)) (sin (pick-heading))))))
+        (move-at (food-x f) (food-y f))
+        (let ((h (pick-heading)))
+          (move (cos h) (sin h))))))
 
 (every-tick step)

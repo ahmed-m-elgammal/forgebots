@@ -1,0 +1,18 @@
+;; ForgeBots canonical "Glow" starter bot.
+;;
+;; Strategy: walk east forever. With Mk-1 top speed 2.5 m/s in a 200 m
+;; arena it needs ~80 s to reach the east wall, which is longer than a
+;; 1500-tick (25 s) match — so it demonstrates a match running out of
+;; clock rather than a wall collision.
+;;
+;; Spec: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.2
+;; Note: 65536 is 100% of this chassis's top speed. `move 1 0` is
+;;       0.0015% throttle and looks like a broken bot — that mistake is
+;;       one of the things this bot exists to make visible.
+;;
+;; Hardware: mk1_engine, solar
+
+(defn step []
+  (move 65536 0))
+
+(every-tick step)

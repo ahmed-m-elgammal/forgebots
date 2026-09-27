@@ -26,5 +26,25 @@ coverage/
 .godot/
 *.tmp
 
-# Generated artefacts (08-API-SURFACE.md § 11 — built from Zod schemas)
+# Generated artefacts (built from the route Zod schemas declared in
+# 08-API-SURFACE.md — no section number: 08 is mid-revision)
 server/openapi.yaml
+
+# ── GPL material: must never enter this repository ────────────────
+# Grobots side files. spec-kit/02-LICENSING.md § 4.1 forbids these
+# outright — two were found sitting in the repo root on 2026-09-27
+# (commune-10.gb, isi-33.gb) and were one `git add .` away from being
+# committed. They are study material; they belong outside the working
+# tree, not in .gitignore as an excuse to keep them here.
+*.gb
+*.gbx
+*.gbk
+
+# Grobots source archives, in case someone downloads one to "compare".
+grobots*.zip
+grobots*.tar.gz
+Grobo*.app
+*.grobots
+
+# The same rule for any other GPL game source we might study.
+# Add the project here the moment one is downloaded, not after.

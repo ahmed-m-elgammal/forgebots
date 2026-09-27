@@ -16,30 +16,38 @@
 ┌──────────────────────────────────────────────────────────┐
 │  Client (Android, iOS, Windows, macOS, Linux)            │
 │  Godot 4.7.x • C# (.NET 10) • GDScript for small bits    │
-│  Custom UI + scene tree + deterministic preview sim      │
+│  Custom UI + scene tree + replay renderer                │
+│  ⚠ Does NOT run the simulator — it renders replays only  │
 └──────────────────────────────────────────────────────────┘
-                              │ HTTPS
+                              │ HTTPS (+ WSS for preview)
                               ▼
 ┌──────────────────────────────────────────────────────────┐
 │  Edge / API                                              │
 │  Node.js 24 + Fastify 5 + TypeScript 7                   │
 │  Auth, matchmaking, account, bot CRUD, replay fetch      │
 └──────────────────────────────────────────────────────────┘
-                              │ AMQP / pg-boss
+                              │ Postgres job table
+                              │ (FOR UPDATE SKIP LOCKED)
                               ▼
 ┌──────────────────────────────────────────────────────────┐
 │  Simulation worker                                       │
 │  Node.js 24 + TypeScript 7 (same code as API)            │
 │  Runs the deterministic simulator headlessly             │
-│  Embeds the ForgeBots VM (sandboxed bytecode runner)     │
+│  Embeds the ForgeBots VM (cycle-budgeted tree-walker)    │
 └──────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌──────────────────────────────────────────────────────────┐
 │  Postgres 18                                             │
-│  Users, bots, matches, replays (JSONB), seasons          │
+│  Users, bots, matches, replays (JSONB), seasons,         │
+│  balance_versions                                        │
 └──────────────────────────────────────────────────────────┘
 ```
+
+There is **no message broker in MVP**. The arrow between the API and
+the worker is a Postgres table claimed with `FOR UPDATE SKIP LOCKED`
+(`06-ARCHITECTURE.md § 4.2`). The earlier version of this diagram
+showed "AMQP / pg-boss" while the same doc deferred both to v0.3.
 
 ## 3. Why this combination
 
@@ -47,11 +55,25 @@
 
 - **One export covers Android, iOS, Windows, macOS, Linux.** Mobile
   pipeline is mature since Godot 4.0.
-- **Headless server export** lets us share a *visual* scene tree with the
-  preview-replay viewer, but the actual authoritative sim runs on Node.
 - **C# (.NET 10 LTS)** gives us types and modern tooling.
 - **MIT licensed** — no per-seat fees.
-- **Determinism-friendly** — fixed-step physics, custom integration loop.
+- Godot can export a headless server build, which we use for nothing:
+  the authoritative simulator is the TypeScript one. This is a
+  deliberate non-use of a capability Godot happens to have.
+
+**The client does not run the simulator.** All previews are server-side
+(`08-API-SURFACE.md` § 3 `/simulate` and § 11 `/preview` over
+WebSocket). Reasons, in order of weight:
+
+1. `simulator/` is TypeScript. A C# or GDScript port would be a
+   **second implementation** and therefore a second determinism
+   surface.
+2. The spec previously required byte-identical replays on iOS and
+   Android, which is only a meaningful claim if the sim runs there.
+   It does not, so that claim is withdrawn
+   ([`22-DECISIONS.md` D3](22-DECISIONS.md)).
+3. A 300-tick preview streams in ~1 s, which is under the editor's
+   "instant" threshold anyway.
 
 ### 3.2 Server = Node.js + TypeScript
 
@@ -61,8 +83,6 @@
 - **Postgres JSONB** is perfect for replays (variable-length event
   sequences per match).
 - The simulator is **pure TypeScript** — runs anywhere Node runs.
-- Could also be embedded in the Godot client (via WebSocket-driven
-  preview panel) — but the MVP keeps that simple.
 
 ### 3.3 DB = Postgres 18
 
@@ -71,8 +91,13 @@
 
 ### 3.4 Cache / Queue (deferred to v0.3)
 
-- MVP runs sims in-process. When load grows, we add **Redis** for
-  matchmaking state and **pg-boss** (or RabbitMQ) for sim jobs.
+- MVP runs sims in-process and claims jobs from a Postgres table. When
+  load grows we add **Redis** for matchmaking state and **pg-boss** (or
+  RabbitMQ) for sim jobs.
+- **Autoscale trigger:** a dedicated sim pool when p95 sim wall time
+  exceeds **20 s** ([`22-DECISIONS.md` D9](22-DECISIONS.md)). The
+  earlier "5 s" trigger would have fired in week one, since a
+  12-robot worst-case match is ~18 s on one core.
 
 ## 4. Languages, runtimes, tools
 
@@ -90,6 +115,12 @@
 | Simulator tests | Vitest + custom harness | — |
 | CI | GitHub Actions | — |
 | Container | Docker + Compose | — |
+| Error tracking | Sentry (server + Godot client) | — |
+| Product analytics | PostHog | — |
+
+> Sentry and PostHog are listed here because `18 § 3.1` and
+> `15 § 7` both depend on them. Both have free tiers adequate for MVP
+> volume; neither is in the critical path of the build.
 
 > **Version refresh (2026-09):** all majors bumped to current stable —
 > Godot 4.7, .NET 10 LTS, Node.js 24 LTS, TypeScript 7 (native Go
@@ -123,11 +154,12 @@ once matches take >5 s wall time.
 |---|---|
 | Firebase | Vendor lock + per-row cost; Postgres + Drizzle is cheaper |
 | MongoDB | JSONB in Postgres covers our needs |
-| Socket.io | Long-poll async PvP doesn't need WebSockets |
+| Socket.io | Matchmaking is request/response; async PvP needs no socket. **One** WebSocket exists, for the editor preview stream (`08 § 11`), and it is hand-rolled over `ws` — no framework. |
 | Cloudflare Workers | Latency + cold start hurt matchmaking |
-| AWS Lambda | Same; sims take ~1 s, doesn't fit billable ms |
+| AWS Lambda | A sim is 3–6 s typical, ~18 s worst case (`09 § 9`). Not a millisecond-billed unit of work, and not something you can hold in memory. |
 | WebRTC | Not in MVP |
 | Unity, Unreal | Heavier, cost, no need |
+| C# or GDScript port of the simulator | A second implementation of the deterministic core. Never. (`22-DECISIONS.md D3`) |
 | Direct port of original C++ | License (see 02-LICENSING.md) |
 
 ## 8. CI/CD pipeline
@@ -136,10 +168,14 @@ once matches take >5 s wall time.
 
 - **CI:** GitHub Actions, free tier.
 - **Mobile builds:** Godot export templates installed on runners.
-- **Simulator golden tests:** run on every PR; failing the replay-hash
-  check fails the PR.
-- **Mobile smoke tests:** Godot integration test scene, runs headless
-  on Android emulator + iOS simulator in CI.
+- **Simulator golden tests:** run on every PR on Linux, macOS and
+  Windows; failing the replay-hash check fails the PR. This is the
+  *only* determinism gate — the simulator does not run on mobile, so
+  there is no mobile replay-hash job (`10-DETERMINISM.md § 6`).
+- **Mobile smoke tests:** a Godot integration scene, run headless on
+  desktop. Android emulator and iOS simulator runs are a **post-MVP**
+  addition, because iOS runners need paid macOS hardware and the
+  free-tier budget does not stretch to a five-platform matrix.
 - **Store distribution:** Fastlane for Play Store; `xcrun notarytool` →
   Transporter for App Store; both from CI. (`altool` is retired by
   Apple; notarytool is the current standard.)
@@ -210,8 +246,12 @@ Concrete numbers, not vibes. CI must catch regressions.
 
 - **Godot mobile polish is still maturing.** Mitigation: budget 2 weeks
   of mobile-only QA in the MVP.
-- **Node.js determinism is fine** as long as we avoid `Date.now`,
-  `Math.random` outside our seeded RNG, and parallel workers. (See
+- **Node.js determinism is fine** as long as we avoid `Math.random`,
+  `Math.*`, `Date.now` and parallel workers. (See
   `10-DETERMINISM.md`.)
 - **Drizzle ORM is younger than Prisma.** Mitigation: typed SQL via Drizzle
   is simpler and we can always drop down to raw queries.
+- **Single-language simulator means no client-side simulation.** If we
+  ever want offline play or a spectator mode that runs matches live, we
+  need a second implementation and a cross-platform determinism budget.
+  That is a v0.3+ decision, not an MVP one.

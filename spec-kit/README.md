@@ -48,6 +48,12 @@ classic Grobots (Devon & Warren Schudy, GPL).
     (EN+AR), Godot TranslationServer wiring, 6-channel push
     notification strategy with frequency caps, opt-in UX, deep
     links, and per-channel opt-out.
+23. **[22-DECISIONS.md](22-DECISIONS.md)** — **read this first if
+    anything looks contradictory.** Every ambiguity that was open
+    across docs 00–21, and the single answer the rest of the kit
+    uses. Where two docs disagreed, the conflict was resolved here
+    and propagated. **Where a doc contradicts this one, this one
+    wins and the doc is a bug.**
 
 ## How the docs split responsibilities
 
@@ -59,16 +65,26 @@ classic Grobots (Devon & Warren Schudy, GPL).
   pre-built; 20 is how we build the engine.
 - **Doc 21** is the *launch-readiness layer*: localization (EN+AR) and
   push notifications.
+- **Doc 22** is the *conflict-resolution layer*: the decisions that
+  removed the contradictions between the above. It owns numbers
+  (units, timings, Elo, geometry) and vocabulary.
 
 | Doc | Owns |
 |---|---|
+| `04-GAME-DESIGN.md` | Mechanics, hardware catalog, arena, match rules |
+| `09-AI-DSL.md` | The language, the verifier, the VM |
+| `10-DETERMINISM.md` | Fixed point, RNG, hash, platform coverage |
+| `11-REPLAY-FORMAT.md` | Replay schema, event volume, size budget |
 | `13-UI-UX-WIREFRAMES.md` | Steady-state screens, navigation map, replay viewer |
 | `16-JUICE-AND-AUDIO.md` | Motion language, particles, SFX catalog, music strategy |
 | `17-ONBOARDING.md` | First 60 seconds, mission ladder, bounce-back, first-loss UX |
-| `18-LIVE-OPS-AND-TELEMETRY.md` | Seasons, patches, KPIs, telemetry, dashboards |
-| `19-STARTER-BOTS-AND-LIBRARY.md` | Starter bots, pattern library, behavioural tests |
+| `18-LIVE-OPS-AND-TELEMETRY.md` | Seasons, balance cadence, KPIs, telemetry |
+| `19-STARTER-BOTS-AND-LIBRARY.md` | Starter bots, pattern library, ghost seeding |
 | `20-IMPLEMENTATION-PLAN.md` | Phased build plan, AI-agent prompts, deps |
 | `21-LOCALIZATION-AND-NOTIFICATIONS.md` | L10n pipeline (EN+AR launch), RTL, push strategy |
+| `22-DECISIONS.md` | Units, timings, energy/HP model, vocabulary, resolved conflicts |
+| `examples/*.fb` | Canonical starter-bot DSL sources (source of truth for doc 19) |
+| `examples/golden-seeds.json` | Golden match definitions and seeds |
 
 If you're a new contributor:
 - Engineers start at `05` → `11`, then follow `20` for execution.
@@ -105,9 +121,34 @@ spec sections that define them.
 
 ## Status
 
-- Spec kit: **v0.5** (cross-document consistency pass: match-length
-  arithmetic, bot-slot caps, ghost-bot sourcing, DSL builtin + part-ID
-  alignment, EN+AR launch alignment, dangling section refs repaired).
+- Spec kit: **v0.6** (conflict-resolution pass). Every contradiction
+  found across docs 00–21 was resolved in
+  [`22-DECISIONS.md`](22-DECISIONS.md) and propagated to the owning
+  doc. Summary of what changed in v0.6:
+  - **Units.** Q16.16 in **metres** (the old "Q16.16 with mm
+    precision" overflowed at ±32.7 m in a 200 m arena). DSL and wire
+    formats are integer millimetres.
+  - **One VM, one language.** The bytecode stage was dropped in favour
+    of the tree-walking interpreter doc 20 already specified. The
+    client **no longer simulates** — there is no C#/GDScript port, and
+    the five-platform replay-hash claim is withdrawn.
+  - **One cycle-budget behaviour.** Abort-and-discard, no partial
+    carry-over, no auto-throttle.
+  - **Energy model fixed.** `floor(watts/60)` made every part under
+    60 W free. Now integer milliwatts with a carried remainder.
+  - **Schema made executable.** `matches.created_at` now exists (three
+    indexes referenced a missing column); the circular
+    `matches.replay_id` ↔ `replays.match_id` pair is gone;
+    `balance_versions` gives the 4-week balance cadence somewhere to
+    live; bookmarks, share links, missions, achievements and the push
+    tables now exist.
+  - **Starter bots corrected.** Two had a `dist` bug that measured from
+    the arena origin; one built only when it had no biomass; one had
+    80-second assumptions in a 25-second match. Quoted win rates were
+    mutually contradictory and never measured, so they are removed
+    pending real output.
+  - **Timing unified.** 1 s / 2 s / 6 s / 18 s / 30 s are now one table
+    in `22-DECISIONS.md D9`.
 - Project skeleton: **scaffolded** — `simulator/`, `server/`, `client/`,
   `web/` exist as empty placeholders (no implementation code).
 - Implementation: **not started** (deferred per planning phase).

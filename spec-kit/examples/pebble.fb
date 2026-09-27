@@ -1,0 +1,17 @@
+;; ForgeBots canonical "Pebble" starter bot.
+;;
+;; Strategy: stand still. The do-nothing baseline used to prove that
+;; the simulator is stable when a robot issues no real intent. It has
+;; no weapon, so it can only lose.
+;;
+;; Spec: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.1
+;; Note: the point of this bot is that the program is still required.
+;;       A bot with no (every-tick ...) form does nothing at all, and
+;;       that is a different (also supported) case.
+;;
+;; Hardware: mk1_engine, short_radar, solar
+
+(defn step []
+  (move 0 0))
+
+(every-tick step)

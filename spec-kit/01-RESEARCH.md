@@ -26,6 +26,17 @@ describes a robot chassis with:
   - **Solar panels / engines** — passive energy.
 - **Software** — a Grobocode program stored per type.
 
+> **What ForgeBots does not carry over.** There is **no Processor
+> part** in the ForgeBots catalog (`04-GAME-DESIGN.md § 3.2`): the
+> compute budget is a per-robot *cycle allowance* (1000/tick) that
+> every robot has equally, rather than a part you can buy. This was a
+> deliberate simplification — a purchasable processor part would make
+> "whoever spends more wins" the dominant strategy.
+>
+> ForgeBots also **drops the shield toggle** (shields are always-on
+> damage buffers in MVP) and **drops map solar cells** (energy comes
+> from Solar Panel / Reactor parts). See `22-DECISIONS.md` D7.
+
 Robots gather **biomass** (organic cells scattered on the map) and **energy**
 (from solar cells or by eating fallen enemies). They reproduce when full,
 die when energy hits zero or HP runs out. Battles run as continuous-time
@@ -34,12 +45,27 @@ real-time simulations until one side is extinct or the round limit hits.
 ### 1.2 Language reference highlights
 
 - **Two-stack machine** (data + return), postfix (RPN) syntax.
-- Words include `dup drop swap rot`, arithmetic, control flow (`if else then`,
-  `do loop`, `begin until`), sensor queries (`radar`, `scan`, `food`),
+- Words include `dup drop swap rot`, arithmetic, control flow
+  (`if else then`, `do loop`), sensor queries (`radar`, `scan`, `food`),
   actions (`fire`, `eats`, `build`, `move`).
-- No recursion (Forth-style), no dynamic allocation.
-- Programs are deterministic *in principle* but the simulator is float-based
-  so micro-differences are possible between platforms.
+- **Recursion IS supported.** The published language reference
+  demonstrates a recursive word. An earlier version of this doc claimed
+  "no recursion (Forth-style)" — that was wrong, and the claim was
+  being used to justify our own verifier rule. The rule stands on its
+  own merits (a cycle-budgeted sandbox has no reason to permit a call
+  graph that can revisit a node, and "all calls form a DAG" is
+  checkable); it does not stand on tradition. See
+  `09-AI-DSL.md § 5` rule 1 and
+  `legacy/03-forgebots-design-translation.md § 2.1`.
+- **Numbers:** one 32-bit fixed-point type, 12 fractional bits — range
+  about ±524,288, precision 1/4096. Note they had roughly 19 integer
+  bits of range, more than our Q16.16, because their world needed it.
+  The lesson is that the split must be chosen against *your* world
+  bounds, not copied. See `22-DECISIONS.md D1`.
+- Programs are deterministic *in principle* but the simulator is
+  float-based, so micro-differences are possible between platforms.
+  A worked teaching reference of the language, written from scratch,
+  is in `legacy/01-grobocode-language-reference.md`.
 
 ### 1.3 What we take from Grobots
 
@@ -59,6 +85,9 @@ real-time simulations until one side is extinct or the round limit hits.
 - **Float-based physics** — makes cross-platform replay fragile.
 - **Forced simultaneous rounds** — fun for tournaments, awkward for async.
 - **GPL copyleft** — incompatible with closed-source mobile publishing.
+- **The Processor part** — replaced by a flat cycle allowance.
+- **The shield toggle** — always-on damage buffers instead.
+- **Map solar cells** — a resource with no player-facing API.
 
 ## 2. Modern competitive landscape
 

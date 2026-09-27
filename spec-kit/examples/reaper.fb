@@ -1,0 +1,26 @@
+;; ForgeBots canonical "Reaper" reference bot.
+;;
+;; Strategy: close on the nearest enemy, aim, fire inside 30 000 mm, and
+;; retreat when energy drops below 200. `enemy()` is map-wide and needs
+;; no sensor part (22-DECISIONS.md D16), so the retreat logic works even
+;; though this chassis has no scanner.
+;;
+;; Spec: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.6
+;; Note: two blasters. `fire` fires every off-cooldown weapon, so DPS
+;;       doubles until one is cooling down. That is intentional.
+;;
+;; Hardware: mk2_engine, long_radar, blaster, blaster, light_shield, solar
+
+(defn step []
+  (let ((e (enemy)))
+    (if (some? e)
+        (do (aim (atan2 (- (hit-y e) (self.y))
+                        (- (hit-x e) (self.x))))
+            (if (< (dist (self.x) (self.y) (hit-x e) (hit-y e)) 30000)
+                (fire))
+            (move-at (hit-x e) (hit-y e)))
+        (if (< (self.energy) 200)
+            (move 0 0)
+            (move 65536 0)))))
+
+(every-tick step)

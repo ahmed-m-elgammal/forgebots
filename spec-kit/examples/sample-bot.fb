@@ -1,19 +1,16 @@
-;; ForgeBots canonical example — based on `spec-kit/19-STARTER-BOTS-AND-LIBRARY.md`.
+;; ForgeBots canonical example — a complete, minimal bot.
 ;;
-;; Strategy: walks toward the nearest biomass cell. No combat.
-;; Mirrors the "Drifter" tutor bot shipped with the game.
-
-(defn pick-heading []
-  (let ((h (* 60 (time))))
-    (if (== (mod h 1800) 0)
-        (rng-int 65536)
-        h)))
+;; Strategy: walk toward the nearest biomass cell, nowhere near the
+;; centre of the arena. No combat. This is the "first program" a new
+;; player meets in 17-ONBOARDING.md § 2.1.
+;;
+;; Spec: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.2 (Glow shape)
+;; Units: DSL lengths are integer millimetres. 100000, 100000 is the
+;;        arena centre (200 m across, 1 tile = 1 m).
+;;
+;; Hardware: mk1_engine, solar
 
 (defn step []
-  (let ((f (food)))
-    (if (some? f)
-        (move (/ (- (food-x f) (self.x)) 60)
-              (/ (- (food-y f) (self.y)) 60))
-        (move (cos (pick-heading)) (sin (pick-heading))))))
+  (move-at 100000 100000))
 
 (every-tick step)

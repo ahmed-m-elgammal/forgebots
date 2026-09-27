@@ -1,9 +1,13 @@
 # 09 — The ForgeBots AI DSL & Sandbox
 
+> Canonical decisions for the VM execution model, cycle over-run, RNG
+> streams and DSL units live in
+> [`22-DECISIONS.md`](22-DECISIONS.md). This doc follows them.
+
 ## 1. Design goals
 
 1. **Safe** — no raw user code on the server.
-2. **Deterministic** — same input → same output on every platform.
+2. **Deterministic** — same input → same output on every run.
 3. **Bounded** — hard cycle/memory caps so a bot can't DoS the simulation.
 4. **Expressive** — enough power to write interesting bots.
 5. **Two surfaces** — visual blocks and text, compiling to the **same IR**.
@@ -18,11 +22,11 @@
 
 (defn scout []
   (let [target (radar)]
-    (if target
+    (if (some? target)
         (do (aim (atan2 (- (hit-y target) (self.y))
                         (- (hit-x target) (self.x))))
             (fire))
-        (move 1 0))))
+        (move 65536 0))))
 
 (every-tick scout)
 ```
@@ -33,57 +37,86 @@ pick it up in a weekend. Grobots' Forth was delightful but niche.
 
 ### 2.2 Reserved forms
 
+Brackets and parentheses are interchangeable everywhere, so `let`
+accepts both `(let [x 5] body)` and the Scheme-style `(let ((x 5)) body)`
+used by the starter bots (`19-STARTER-BOTS-AND-LIBRARY.md § 2`). One
+parser, one AST ([`22-DECISIONS.md` D21](22-DECISIONS.md)).
+
 | Form | Purpose |
 |---|---|
-| `(let [name expr]* body)` | Bind locals |
-| `(if cond then else?)` | Branch |
+| `(let [name expr]* body)` | Bind locals (one or many bindings) |
+| `(if cond then else?)` | Branch. `else` may be omitted. |
 | `(do expr*)` | Sequence |
-| `(while cond body)` | Loop with cycle budget (verifier requires a declared max-iteration count — see § 5) |
-| `(loop n body)` | Bounded loop |
+| `(while cond max-iters body)` | Loop with a **required** literal iteration bound (§ 5, rule 2) |
+| `(loop n body)` | Bounded loop, exactly `n` iterations |
 | `(defn name [args] body)` | Define function |
-| `(call fn args*)` | Call user fn |
-| `(every-tick fn)` | Program entry point; calls `fn` once per tick |
-| `cond`, `when`, `not`, `and`, `or` | Booleans |
+| `(call fn args*)` | Call a user fn |
+| `(every-tick fn)` | Program entry point. **`fn` must be a function name** — an inline form is a compile error. |
+| `(cond [test expr]* [else expr])` | Multi-way branch. `else` is required. |
+| `when`, `not`, `and`, `or` | Booleans |
 | `+`, `-`, `*`, `/`, `mod`, `abs`, `min`, `max` | Math |
 | `<`, `<=`, `>`, `>=`, `==`, `!=` | Compare |
-| `radar`, `scan angle`, `food`, `ally`, `enemy` | Sensors |
-| `self.x`, `self.y`, `self.hp`, `self.energy`, `self.biomass`, `self.alive` | Self state |
-| `move vx vy`, `aim angle`, `fire`, `eat`, `build type`, `say ch v` | Actuators |
-| `time`, `tick`, `rng-int n` | Time & RNG |
-| `some? opt` | True if an Option sensor result is present |
-| `dist x1 y1 x2 y2` | Fixed-point distance between two points |
-| `food-x f`, `food-y f` | Coordinates of a `food` result |
-| `hit-x h`, `hit-y h` | Coordinates of a `radar`/`scan`/`ally`/`enemy` hit |
-| `sin a`, `cos a`, `atan2 dy dx` | Fixed-point trig (lookup tables — see `10-DETERMINISM.md` § 2.2) |
+| `some?` | `Option` test — the **only** way to branch on a sensor result (§ 2.3) |
+| `radar`, `(scan angle)`, `(food)`, `(ally)`, `(enemy)` | Sensors |
+| `(self.x)`, `(self.y)`, `(self.hp)`, `(self.shield)`, `(self.energy)`, `(self.biomass)`, `(self.alive)` | Self state, in **integer millimetres** |
+| `(move vx vy)`, `(move-at tx ty)`, `(aim angle)`, `(fire)`, `(eat)`, `(build design)`, `(say ch v)` | Actuators |
+| `(time)` | Current match tick |
+| `(rng-int n)` | Uniform int in `[0, n)` from **this robot's own** RNG stream |
+| `(dist x1 y1 x2 y2)` | Fixed-point distance between two points, in mm |
+| `(food-x f)`, `(food-y f)` | Coordinates of a `food` result |
+| `(hit-x h)`, `(hit-y h)` | Coordinates of a `radar`/`scan`/`ally`/`enemy` hit |
+| `(sin a)`, `(cos a)`, `(atan2 dy dx)` | Fixed-point trig (lookup tables — `10-DETERMINISM.md` § 2.2) |
 
-> **Parser note:** brackets and parentheses are interchangeable, so
-> `let` accepts both `(let [x 5] body)` and the wrapping-paren style
-> `(let ((x 5)) body)` used by the starter bots (`19-STARTER-BOTS-AND-LIBRARY.md`
-> § 2).
+**Unit cheat-sheet** (full table in [`22-DECISIONS.md` D8](22-DECISIONS.md)):
 
-### 2.3 Examples
+| Value | Unit |
+|---|---|
+| `self.x/y`, `food-x/y`, `hit-x/y`, `dist`, all ranges | integer **millimetres** |
+| `aim`, `scan`, `atan2` | angle unit, **65536 = 2π** (not radians) |
+| `sin`, `cos` | Q16.16, **65536 = 1.0** (deliberately *not* the angle unit) |
+| `move` | Q16.16 throttle, **65536 = 100 % of top speed**, clamped to ±65536 |
+
+> **Naming rules:** identifiers may end in `?` (`some?`,
+> `within-range?`). `.` is valid **only** inside the reserved `self.*`
+> namespace — user identifiers may not contain `.`.
+
+### 2.3 Types
+
+There are exactly three types: `int`, `bool`, and `Option<T>`.
+
+- All numbers are **integers**. `sin`/`cos`/`move` are Q16.16
+  (65536 = 1.0); everything else is a plain integer.
+- `Option<T>` occupies two stack slots: a tag (`0` = none, `1` = some),
+  followed by the payload when the tag is `1`.
+- **An `Option` is not a `bool`.** `(if (radar) …)` is a **compile
+  error** — write `(if (some? (radar)) …)`. The verifier enforces this.
+- The verifier inserts a bounds check before every `hit-x`/`hit-y`/
+  `food-x`/`food-y` call, so payload access on `none` is unreachable.
+
+### 2.4 Examples
 
 **Gatherer:**
 ```
 (defn step []
   (let [f (food)]
-    (if f
-        (move (/ (- (food-x f) (self.x)) 60)
-              (/ (- (food-y f) (self.y)) 60))
-        (move 0 0)))
+    (if (some? f)
+        (move-at (food-x f) (food-y f))
+        (move 0 0))))
+
 (every-tick step)
 ```
 
 **Hunter:**
 ```
 (defn step []
-  (let [e (enemy)]
-    (if e
+  (let [e (radar)]
+    (if (some? e)
         (do (aim (atan2 (- (hit-y e) (self.y))
                         (- (hit-x e) (self.x))))
             (if (< (dist (self.x) (self.y) (hit-x e) (hit-y e)) 30000)
                 (fire)))
-        (move 1 0)))
+        (move-at 100000 100000))))
+
 (every-tick step)
 ```
 
@@ -91,103 +124,182 @@ pick it up in a weekend. Grobots' Forth was delightful but niche.
 ```
 (defn step []
   (let [f (food)]
-    (if f
-        (move (/ (- (food-x f) (self.x)) 60)
-              (/ (- (food-y f) (self.y)) 60))
+    (if (some? f)
+        (move-at (food-x f) (food-y f))
         (do (eat)
-            (if (>= (self.biomass) 5) (build 0)))))
+            (if (>= (self.biomass) 5)
+                (build 0))))))
+
 (every-tick step)
 ```
+
+> `move-at` replaced the old `(/ (- (food-x f) (self.x)) 60)` idiom,
+> which had no defined units (`22-DECISIONS.md` D8). `(move 1 0)` still
+> parses — `1` is Q16.16, i.e. 0.0015 % throttle, so the bot barely
+> moves. That is a common beginner bug, so the editor warns when a
+> `move` argument's magnitude is below 1000.
 
 ## 3. The compiler
 
 ```
 text DSL ──┐
-           ├──►  IR (JSON tree)  ──►  Verifier  ──►  Bytecode  ──►  VM
+           ├──►  IR (JSON tree)  ──►  Verifier  ──►  Tree-walking VM
 blocks ────┘
 ```
 
-- **Lexer/parser** written by hand. ~300 LOC.
+- **Lexer/parser** written by hand. Split across `program/` so no file
+  breaches the 300-line cap in `AGENT.md § 5`:
+  | File | Responsibility | Size |
+  |---|---|---|
+  | `program/tokenizer.ts` | `tokenize(src) → Token[]` with line/col | ~120 |
+  | `program/errors.ts` | `CompileError` and its factories | ~40 |
+  | `program/ast.ts` | AST node types (types only) | ~60 |
+  | `program/parser.ts` | recursive-descent `Parser` | ~250 |
+  | `program/lower.ts` | AST → IR (Phase 05) | ~150 |
+  | `program/compiler.ts` | `compile(src, meta)` entry point | ~30 |
 - **IR is JSON-serialisable.** Every form is an object:
   ```json
-  { "op": "call", "fn": "move", "args": [ {"op":"num","v":0.5}, {"op":"num","v":0} ] }
+  { "op": "call", "fn": "move", "args": [ {"op":"num","v":65536}, {"op":"num","v":0} ] }
   ```
 - The IR is the canonical "compiled" form. We can re-target it to
   different VMs without touching the front-end.
+- **There is no bytecode stage.** The VM walks the IR tree directly
+  ([`22-DECISIONS.md` D2](22-DECISIONS.md)), so the cost table in § 4 is
+  a **per-IR-node** table, not an instruction table. This is what
+  `20-IMPLEMENTATION-PLAN.md` Phase 06 builds, and no phase in that
+  plan emits a bytecode compiler.
 
-## 4. The bytecode
+## 4. IR node cost table
 
-A small stack-based bytecode (32 instructions in MVP). Example ops:
+Cycles charged per IR node — used both by the static estimator
+(§ 5, rule 3) and at runtime. There is no opcode stream, so
+"instruction" and "node" mean the same thing here and the word used
+throughout is **node**.
 
-| Opcode | Stack effect | Cost (cycles) |
-|---|---|---|
-| `PUSH_NUM n` | -- n | 1 |
-| `PUSH_VAR n` | -- v | 2 |
-| `STORE_VAR n` | v -- | 2 |
-| `ADD` | a b -- (a+b) | 1 |
-| `SUB`, `MUL`, `DIV`, `MOD` | a b -- r | 1–3 |
-| `JMP_IF_FALSE off` | c -- | 2 |
-| `CALL nargs` | args... -- ret | 4 + nargs |
-| `RET` | -- | 2 |
-| `SELF hp` | -- hp | 3 |
-| `SELF x` | -- x | 3 |
-| `RADAR` | -- ?hit | 25 |
-| `SCAN a` | a -- ?hit | 20 |
-| `FOOD` | -- ?pos | 18 |
-| `MOVE vx vy` | vx vy -- | 30 |
-| `AIM a` | a -- | 20 |
-| `FIRE` | -- bool | 40 |
-| `EAT` | -- bool | 25 |
-| `BUILD t` | t -- bool | 50 |
-| `SAY c v` | c v -- | 10 |
-| `TIME` | -- t | 1 |
-| `RNG n` | n -- r | 4 |
-| `HALT` | -- | 0 |
+| Node | Cost (cycles) |
+|---|---|
+| `num`, `var` (read), `bool` | 1 |
+| `store` (write local) | 2 |
+| `self.*` | 3 |
+| `+`, `-`, `*`, `abs`, `min`, `max`, comparisons, `and`/`or`/`not` | 1–2 |
+| `/`, `mod` | 3 |
+| `if` | 2 (plus branches) |
+| `while`, `loop` | 4 (plus body × iterations) |
+| `call` user fn | 4 + nargs |
+| `some?` | 3 |
+| `dist`, `sin`, `cos`, `atan2` | 6 |
+| `hit-x`, `hit-y`, `food-x`, `food-y` | 3 |
+| `time` / `rng-int` | 1 / 4 |
+| `radar` | 25 |
+| `scan` | 20 |
+| `food` | 18 |
+| `ally`, `enemy` | 25 |
+| `move`, `move-at` | 30 |
+| `aim` | 20 |
+| `fire` | 40 |
+| `eat` | 25 |
+| `build` | 50 |
+| `say` | 10 |
+
+Weapon hitscan and grenade ballistics are resolved by the match driver
+(`20-IMPLEMENTATION-PLAN.md` Phase 11), not by the VM, so they carry no
+DSL cost.
 
 ## 5. The verifier
 
-Before any IR is executed, it is verified:
+Before any IR is executed, it is verified. Failures are reported to the
+editor inline and the editor refuses to save (§ 10).
 
-1. **No recursion.** All calls form a DAG. (Forth had no recursion either.)
-2. **No unbounded loops.** `while` requires a max-iteration count
-   declared up-front; we reject programs without one.
-3. **Cycle budget check.** Static estimate of worst-case cycles/tick
-   must be ≤ 1000. If higher, reject.
-4. **Stack depth.** Max stack depth ≤ 64.
-5. **Type check.** All `radar`/`food`/`enemy` results are `Option`;
-   must be unwrapped before use.
-6. **Identifier resolution.** All `call`s resolve to user fn or built-in.
+1. **No recursion.** All calls form a DAG. (Forth had no recursion
+   either.) A test bot containing `(defn f [] (call f))` is rejected.
+2. **No unbounded loops.** `while` takes a **literal** `max-iters`
+   argument: `(while cond 64 body)`. A missing or non-literal bound is
+   a **compile error** — there is no "declared up-front elsewhere"
+   syntax and no runtime discovery path. `(loop n body)` needs a
+   literal `n` for the same reason.
+3. **Static cycle estimate** must be ≤ **1000** cycles/tick. The
+   estimator multiplies each loop body by its literal bound and takes
+   the worst branch of every `if`/`cond`.
+4. **Stack depth** ≤ **64** at every program point; locals ≤ 32 per frame.
+5. **Type check.** Sensor results are `Option` and must be tested with
+   `some?` before their payload is read. `if`/`cond` directly on an
+   `Option` is an error, not a coercion.
+6. **Identifier resolution.** Every `call` resolves to a user `defn` or
+   a builtin. Unknown names are compile errors, not runtime traps.
+7. **Payload bounds.** `hit-x`/`hit-y`/`food-x`/`food-y` are only
+   reachable on a `some?`-true branch.
+8. **Exactly one entry point.** Exactly one `(every-tick name)` per
+   program, and `name` must resolve to a `defn` taking zero arguments.
+9. **Part preconditions** are *warnings*, not errors: `fire` without a
+   weapon, `build` without a Constructor, `build` of a design the robot
+   has no Constructor for. A bot is validated independently of the
+   chassis it will run on, so these cannot be hard errors.
 
 ## 6. The VM (the actual sandbox)
 
-The VM is a **pure TypeScript state machine**, ~400 LOC, with NO
-outside dependencies. It is:
+The VM is a **pure TypeScript state machine** with NO outside
+dependencies. It is split so that each piece is independently testable
+and no file breaches the 300-line cap (`AGENT.md § 5`):
 
-- **Cycle-counted:** every instruction costs cycles; the VM decrements
-  a budget each tick. If the budget hits 0 mid-instruction, the VM
-  suspends for that tick (yielded state is discarded).
+| File | Responsibility | Size |
+|---|---|---|
+| `execution/frame.ts` | value stack + locals, the 64 / 32 caps | ~120 |
+| `execution/interpreter.ts` | the tree walk; charges the § 4 costs | ~200 |
+| `execution/builtins.ts` | the IR-node dispatch table | ~150 |
+| `execution/vm.ts` | `runVm(env, ir)`: budget, abandon-the-tick, events | ~120 |
+
+**The builtins are not in `execution/`.** A sensor builtin is the
+public surface of the `perception` context and an actuator builtin is
+the public surface of `actuation`; `execution/builtins.ts` only
+*dispatches* to them. That is what keeps the VM ignorant of what a
+`radar` or a `move` means (`AGENT.md § 6`, G7). The context tree is
+in `06-ARCHITECTURE.md § 2`.
+
+The VM as a whole is:
+
+- **Tree-walking** over the IR, charging the per-node cycle cost from § 4.
+- **Cycle-counted:** the budget starts at 1000 each tick. Hitting 0
+  mid-node **abandons the tick** — every actuator this robot queued is
+  discarded, the robot does nothing, and a `vm_yield` event with
+  `reason: "budget"` is emitted. There is no partial carry-over and no
+  auto-throttle ([`22-DECISIONS.md` D4](22-DECISIONS.md)). Because § 5,
+  rule 3 rejects anything over budget statically, a runtime yield means
+  the static estimator has a gap: log it and file it.
 - **Memory-bounded:** the data stack is capped at 64 entries.
-- **Deterministic:** floats are converted to int (fixed-point Q16.16)
-  for all arithmetic in user-visible state. RNG is the seed-per-bot.
-- **Pure:** the VM is a function `(state, ir, env) -> {state', events}`.
-  No I/O. No `Date.now`. No `Math.random`.
+- **Deterministic:** no floating point. World state is Q16.16 metres,
+  DSL lengths are integer millimetres, angles are 65536 = 2π
+  ([`22-DECISIONS.md` D1](22-DECISIONS.md)).
+- **Pure:** the VM is a function
+  `(state, ir, env) -> { state', actuators, events }`. No I/O.
+  No `Date.now`. No `Math.random`.
+- **RNG-scoped:** `rng-int` reads only that robot's own stream, which is
+  advanced only by that robot's instructions. A bot's random sequence
+  cannot be perturbed by other robots or by world events
+  ([`22-DECISIONS.md` D5](22-DECISIONS.md)).
 
 ## 7. The visual editor
 
 Built with **Blockly** (Google's MIT-licensed block library). Each
-Blockly block has a 1:1 mapping to a DSL form. The DSL source view is
-generated *from* blocks and vice versa — power users can switch modes
-without losing work.
+Blockly block maps 1:1 to an IR node. Text and blocks are two views of
+one IR:
+
+- **blocks → IR** is a structural walk and is lossless.
+- **IR → blocks** is defined for every node the block set covers.
+- **text → IR → blocks → IR** must be byte-identical, and is a CI test
+  run over every file in `spec-kit/examples/`.
+- Anything the block set cannot represent (e.g. a hand-written `while`
+  with an unusual bound) is **read-only in blocks** and shows a banner
+  saying so. The editor never silently rewrites a program.
 
 ```
 ┌──────────────────┬───────────────────────────────┐
 │  Block palette   │   Workspace (drag blocks)     │
 │  ─ Sensors       │                               │
 │  ─ Actuators     │   [Every tick]                │
-│  ─ Logic         │     [If] [Radar → ?]          │
+│  ─ Logic         │     [If] [Radar → ?some?]      │
 │  ─ Math          │         [Aim] [Fire]          │
 │  ─ Functions     │     [Else]                    │
-│                  │         [Move 1 0]            │
+│                  │         [Move-at x y]         │
 └──────────────────┴───────────────────────────────┘
 ```
 
@@ -201,20 +313,25 @@ The "Text" tab shows the DSL source live.
 | Lua (LuaJIT) | Faster, but exploits in sandboxed Lua are known. |
 | Python | Slow startup, harder to enforce cycle budgets. |
 | WebAssembly | Heavyweight; too low-level for an audience of non-CS players. |
-| **Our DSL → IR → bytecode** | Tiny, fast (1 ms per tick per bot), auditable, portable. |
+| **Our DSL → IR → tree-walking VM** | Tiny, fast (≈ 1 µs per cycle per bot), auditable, portable. |
 
 ## 9. Performance budget
 
-- **Per bot per tick:** ≤ 1000 cycles.
-- **Per bot cycle cost:** ≈ 1 µs in our VM.
-- **Worst case:** 12 bots (6 per side — see `04-GAME-DESIGN.md` § 6)
-  × 1000 cycles × 1500 ticks = 18 M cycles total.
-- At ~1 µs each, that's **~18 s per match** on a single core — within
-  our 30 s match SLA (`12-MVP-ROADMAP.md` § 4), though worst-case
-  matches will cross the >5 s autoscale threshold in `05-TECH-STACK.md` § 5.
+- **Per robot per tick:** ≤ 1000 cycles.
+- **Per cycle:** ≈ 1 µs in our VM.
+- **Worst case:** 12 robots (6 per side — `04-GAME-DESIGN.md` § 6)
+  × 1000 cycles × 1500 ticks = 18 M cycles.
+- At ~1 µs each that is **≈ 18 s per match on a single core**. That is
+  the **ceiling**, not the expectation: typical bots run 200–400
+  cycles/tick, which puts a real match at **3–6 s**.
+- **SLA:** replay ready within 30 s (p95). Editor preview (300 ticks)
+  within 3 s.
+- The canonical table of every timing number in the spec kit is
+  [`22-DECISIONS.md` D9](22-DECISIONS.md). No other doc may state one.
 
 ## 10. The "rejected bot" UX
 
 If your bot fails verification, the editor shows the error inline
-("line 7: 'radar' returns Option, must check before use") and refuses
-to save. Friendly, immediate feedback. No silent failures.
+(`line 7: 'radar' returns Option — test it with some? first`) and
+refuses to save. Friendly, immediate feedback. No silent failures, and
+no silent downgrade to a "simpler" program.

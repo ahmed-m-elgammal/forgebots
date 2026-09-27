@@ -27,7 +27,7 @@ genre, with **enough programming depth** to attract power users.
 ### 2.1 Hardware construction (Grobots DNA, modern UI)
 
 Gladiabots and Screeps give you *code* and a *team*. We give you a
-**chassis** with a real mass budget and 8 hardware slots. Putting a bigger
+**chassis** with a real mass budget and 8 part slots. Putting a bigger
 engine means slower turns. Putting a shield means less room for weapons.
 This is Grobots' signature mechanic and we modernise the UI around it.
 
@@ -57,21 +57,27 @@ thumb-reachable tool palette, gesture-friendly zoom, large hit-targets.
 
 ### 2.5 True determinism + replay fidelity
 
-All our physics is integer/fixed-point. Every replay is byte-identical
-on every platform, including the editor preview. We support
+All our physics is integer/fixed-point and the simulator has exactly
+one implementation, running server-side
+([`22-DECISIONS.md` D3](22-DECISIONS.md)). Every replay is identical
+for every viewer, because there is only one replay. We support
 **scrubbing, jumping to event, slow-mo (0.25×), bookmarks**.
 
 ### 2.6 Server-authoritative sandbox
 
 Player code never executes on a third-party machine in source form.
-It compiles to **ForgeBots IR**, then to a constrained bytecode, which
-runs in a **tick-budgeted VM** on the server. Each robot gets a
-hard cycles/tick limit (default 1000) and a hard stack cap.
+It is compiled to **ForgeBots IR**, verified, then run by a
+cycle-budgeted tree-walking VM. Each robot gets a hard
+1000 cycles/tick limit and a 64-slot data stack.
 
 ### 2.7 Progression with cosmetics, no pay-to-win
 
-We sell **chassis skins**, **arena themes**, and **bot slots**. We do
-not sell power. Elo rank + ladder + cosmetic drops drive retention.
+We sell **chassis skins**, **arena themes**, and **bot slots** (a
+capacity purchase, never a strength purchase). We do not sell power.
+Elo rank + ladder + seasonal cosmetic unlocks drive retention.
+
+Note "unlocks", not "drops": there is no gacha and no random paid roll
+(`14-MONETIZATION.md § 5`).
 
 ## 3. The "anti-features" (deliberately not done)
 

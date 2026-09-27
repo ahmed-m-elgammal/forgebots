@@ -91,11 +91,65 @@ require credit (it requires source availability for derivatives only).
 
 ## 7. Legal sanity checklist (run before each release)
 
+Run this **from the repository root**, and check the *whole* tree. The
+first version of this checklist only looked inside `simulator/`,
+`server/` and `client/`, which is how two Grobots `.gb` side files
+ended up in the repo root untracked and one `git add .` away from being
+committed.
+
+### 7.1 Automated pre-flight (must be green)
+
+- [ ] `git ls-files` returns **no** `.gb`, `.gbx`, `.gbk` file.
+- [ ] `git ls-files` returns no file matching a Grobots source archive.
+- [ ] No untracked file is outside the ignore rules:
+      `git status --porcelain` shows no `??` for anything you did not
+      create deliberately.
+- [ ] `THIRD-PARTY.md` exists, is current, and lists every third-party
+      dependency and asset with its licence and version.
+
+### 7.2 Per-module source review
+
 - [ ] No file in `simulator/` is copied from a GPL source.
 - [ ] No file in `server/` is copied from a GPL source.
 - [ ] No file in `client/` is copied from a GPL source.
-- [ ] All third-party assets are under permissive licenses (CC0, CC-BY,
-      MIT, Apache-2.0).
-- [ ] Credits screen lists all third-party dependencies and licenses.
-- [ ] No use of the "Grobots" name, logo, or trademarks.
-- [ ] No reverse-engineered code paths from the Java port.
+- [ ] No file in `web/` is copied from a GPL source.
+- [ ] No file in `tools/` is copied from a GPL source.
+- [ ] No file in `legacy/` contains copied third-party expression — it
+      is original prose describing published behaviour. See
+      `legacy/README.md`.
+- [ ] **Repo root**: no source file, no data file, no notes file
+      outside the tracked document set. This is the line that was
+      missing.
+
+### 7.3 Clean-room integrity
+
+- [ ] No original source file is present anywhere in the working tree,
+      including untracked files. Study material lives outside the repo.
+- [ ] No reverse-engineered code path from any original implementation.
+- [ ] The implementation team has not worked from the original's
+      expression. If a design decision can only be justified as
+      "the original did it this way", it is re-argued from a
+      requirement first — see `legacy/03-forgebots-design-translation.md
+      § 6`.
+
+### 7.4 Assets and dependencies
+
+- [ ] All third-party assets are under permissive licences
+      (CC0, CC-BY, OFL, MIT, Apache-2.0, BSD).
+- [ ] Fonts are recorded with their licence. Launch set is Inter,
+      Noto Sans Arabic and JetBrains Mono, all OFL (`21 § 1.8`).
+- [ ] Every runtime dependency appears in `THIRD-PARTY.md` with its
+      licence. Copyleft dependencies are grounds to stop the release.
+- [ ] Credits screen lists all third-party dependencies and licences.
+
+### 7.5 Marks and attribution
+
+- [ ] No use of the "Grobots" name, logo, or trademarks in the product,
+      the store listing, or the marketing site.
+- [ ] The attribution text in § 6 appears in the app's About screen and
+      in the repository README.
+
+### 7.6 Process
+
+- [ ] A human, not just CI, has read this section. The checks above are
+      a floor, not a substitute.

@@ -1,0 +1,56 @@
+{
+  "$comment": [
+    "Golden match definitions for the determinism gate.",
+    "Loaded by 10-DETERMINISM.md 5, 20-IMPLEMENTATION-PLAN.md Phase 14 and",
+    "08-API-SURFACE.md /health. CI runs every matchup on every PR and asserts",
+    "output_sha256 matches the value recorded in simulator/test/fixtures/.",
+    "",
+    "The `hash` field is deliberately null. It is populated by the first",
+    "deterministic run (Phase 14 task T16.3) and committed. A hash that",
+    "changes without a sim_version bump fails the build; a hash that is",
+    "edited by hand to make a build pass is the failure mode this file",
+    "cannot prevent, so the fixtures are reviewed like source.",
+    "",
+    "Before these hashes exist, no match may be described by a win rate.",
+    "19-STARTER-BOTS-AND-LIBRARY.md 7 says so explicitly."
+  ],
+  "balance_version": "season-1-v1",
+  "tick_limit": 1500,
+  "matchups": [
+    {
+      "id": "golden-1-pebble-vs-drifter",
+      "p1": { "bot": "pebble", "source": "spec-kit/examples/pebble.fb" },
+      "p2": { "bot": "drifter", "source": "spec-kit/examples/drifter.fb" },
+      "seed": "0x0000000000000001",
+      "covers": "no-weapon vs foraging; move-at; food sensor; some?",
+      "hash": null
+    },
+    {
+      "id": "golden-2-drifter-vs-breeder",
+      "p1": { "bot": "drifter", "source": "spec-kit/examples/drifter.fb" },
+      "p2": { "bot": "breeder", "source": "spec-kit/examples/breeder.fb" },
+      "seed": "0x0000000000000002",
+      "covers": "cond; build; constructor; two collectors with no weapons",
+      "hash": null
+    },
+    {
+      "id": "golden-3-swarm-mind-vs-reaper",
+      "p1": { "bot": "swarm-mind", "source": "spec-kit/examples/swarm-mind.fb" },
+      "p2": { "bot": "reaper", "source": "spec-kit/examples/reaper.fb" },
+      "seed": "0x0000000000000003",
+      "covers": "the heaviest path: construction + aim + two blasters + shield regen",
+      "hash": null
+    }
+  ],
+  "ghost_seed_elo": {
+    "$comment": "19-STARTER-BOTS-AND-LIBRARY.md 1.1. Seeded once per season.",
+    "pebble": 800,
+    "glow": 850,
+    "drifter": 950,
+    "pouncer": 1100,
+    "breeder": 1250,
+    "reaper": 1450,
+    "sentinel": 1500,
+    "swarm-mind": 1650
+  }
+}

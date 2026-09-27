@@ -1,0 +1,26 @@
+;; ForgeBots canonical "Swarm-Mind" reference bot.
+;;
+;; Strategy: a parent that forages and builds, and does not fight. The
+;; role-differentiated variant (a defender child with its own program)
+;; is blocked on a language gap: `build` takes a design index into this
+;; bot's own design list and a child inherits the parent's program.
+;; Tracked as post-MVP in 19-STARTER-BOTS-AND-LIBRARY.md § 6.
+;;
+;; Spec: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.7
+;;
+;; Hardware: mk1_engine, short_radar, constructor, storage, solar
+
+(defn pick-design []
+  (cond
+    [(== (mod (time) 300) 0) 0]
+    [else 0]))
+
+(defn step []
+  (let ((f (food)))
+    (if (some? f)
+        (move-at (food-x f) (food-y f))
+        (if (>= (self.biomass) 5)
+            (build (pick-design))
+            (move 0 0)))))
+
+(every-tick step)

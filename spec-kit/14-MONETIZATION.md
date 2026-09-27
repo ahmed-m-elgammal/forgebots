@@ -13,18 +13,23 @@
 
 - 3 bot slots
 - All hardware parts (no paywalled sensors)
-- All game modes
-- Async PvP (with 30 s matchmaking budget)
-- Replays (own only)
-- 3 AI opponents
+- All game modes *(MVP ships one mode, Eliminator — `04 § 6`)*
+- Async PvP (ghost fallback is instant; human matchmaking may take
+  longer)
+- Replays: own + bookmarks, forever
+- All 8 starter bots, including the 3 tutorial missions
+- **Not** included: public share links
 
 ### 2.2 "Forge Pass" (one-time IAP, $4.99)
 
 - +9 bot slots (12 total)
 - "Save unlimited previous versions" of each bot
-- Replay share links (public-read)
+- **Replay share links** (public-read, 30 days) — `08 § 4`
 - All current cosmetics (skins, animations, themes)
-- Future cosmetics included while pass is active
+- All cosmetics released **while the pass is held** — since the pass is
+  a one-time purchase, "while active" was meaningless; it now means
+  "everything released up to 12 months after purchase", which is what
+  the store listing says
 
 ### 2.3 Cosmetic packs (per item, $0.99–$2.99)
 
@@ -34,9 +39,13 @@
 
 ### 2.4 Slot packs (per pack, $1.99)
 
-- +3 bot slots, up to a hard cap of 30 (supersedes the "up to 12"
-  mentioned in early drafts of `04-GAME-DESIGN.md` § 8 — Forge Pass
-  takes you to 12; slot packs extend to 30).
+- +3 bot slots, up to a **hard cap of 30**.
+- Forge Pass takes you to 12; slot packs extend 12 → 30.
+- The 30 cap is enforced by a `check` constraint on
+  `users.bot_slot_limit` (`07-DATA-MODEL.md § 2.1`), not by convention.
+- 30 is MVP. It is not "up to 12" — an earlier draft of `04 § 8`
+  claimed 12 and was itself wrong about what the earlier draft said;
+  both are now 30 with a Forge Pass step at 12.
 
 ## 3. Revenue projections (order-of-magnitude)
 
@@ -70,11 +79,11 @@ to scale downloads via:
 
 | Anti-pattern | Why not |
 |---|---|
-| Gacha | Random paid rolls are ethically questionable and banned in some markets |
+| Gacha / random paid rolls | Ethically questionable and banned in some markets. There are no "cosmetic drops" either — everything is bought directly (`03 § 2.7`). |
 | Energy system | No, this is not a match-3 |
 | Battle pass with FOMO | Optional cosmetics only, no "exclusive" timed gates |
 | Premium currency | Direct USD pricing is clearer and conversion-friendly |
-| Pay-to-skip queue | Async is already instant for normal Elo |
+| Pay-to-skip queue | Async is already instant against a ghost; humans may wait, and that wait is not for sale |
 | Ads | Game is not a billboard |
 
 ## 6. Receipt validation

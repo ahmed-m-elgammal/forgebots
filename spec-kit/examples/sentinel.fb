@@ -1,0 +1,28 @@
+;; ForgeBots canonical "Sentinel" reference bot.
+;;
+;; Strategy: claim the arena centre and hold it with a heavy shield.
+;;
+;; The centre test compares squared distance against 100000 mm squared.
+;; 100000 mm is the centre because the arena is 200 m across and
+;; 1 tile = 1 m (22-DECISIONS.md D15). Squared comparison is
+;; overflow-safe at the arena extent *only* because world state is
+;; Q16.16 metres, not Q16.16 millimetres.
+;;
+;; Spec: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.8
+;;
+;; Hardware: mk1_engine, long_radar, blaster, heavy_shield, solar, storage
+
+(defn step []
+  (let ((e (radar)))
+    (if (some? e)
+        (do (aim (atan2 (- (hit-y e) (self.y))
+                        (- (hit-x e) (self.x))))
+            (if (< (dist (self.x) (self.y) (hit-x e) (hit-y e)) 30000)
+                (fire)))
+        (if (> (+ (* (self.x) (self.x))
+                 (* (self.y) (self.y)))
+             (* 100000 100000))
+            (move-at 100000 100000)
+            (move 0 0)))))
+
+(every-tick step)

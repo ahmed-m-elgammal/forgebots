@@ -1,9 +1,12 @@
-;; ForgeBots canonical "Pouncer" tutor bot — Mission 2 in the
-;; onboarding ladder.
+;; ForgeBots canonical "Pouncer" tutor bot — Mission 2 in the onboarding
+;; ladder.
 ;;
-;; Scans for the nearest enemy, aims, fires when in 30 m range.
-;; Falls back to a slow forward walk.
-;; See: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.4
+;; Acquires the nearest enemy with radar, aims at it, and fires once
+;; inside the blaster's 30 000 mm range. Walks forward otherwise.
+;;
+;; Spec: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.4
+;; Note: the distance check is measured FROM THIS BOT, not from the
+;;       arena origin.
 ;;
 ;; Hardware: mk2_engine, long_radar, blaster, solar
 
@@ -11,11 +14,9 @@
   (let ((e (radar)))
     (if (some? e)
         (do (aim (atan2 (- (hit-y e) (self.y))
-                         (- (hit-x e) (self.x))))
-            (if (< (dist 0 0 (- (hit-x e) (self.x))
-                            (- (hit-y e) (self.y)))
-                   30000)
+                        (- (hit-x e) (self.x))))
+            (if (< (dist (self.x) (self.y) (hit-x e) (hit-y e)) 30000)
                 (fire)))
-        (move 1 0))))
+        (move 65536 0))))
 
 (every-tick step)
