@@ -21,6 +21,7 @@ const MULBERRY_GOLDEN = 0x6d2b79f5;
 const MAX_UINT32 = 0xffffffff;
 const UINT64_LIMIT = 1n << 64n;
 const M64 = UINT64_LIMIT - 1n;
+const UINT32_MASK = 0xffffffffn;
 // splitmix64's golden gamma. deriveSeed advances by it before the first
 // mix so a bot stream can never coincide with createMatchRng's reduction
 // of the same match seed — stream separation holds for every seed (D5).
@@ -90,7 +91,7 @@ export function createRng(seed: number): Rng {
 
 export function createMatchRng(seed: bigint): Rng {
   assertMatchSeed(seed);
-  return createRng(Number(mix64(seed) & 0xffffffffn));
+  return createRng(Number(mix64(seed) & UINT32_MASK));
 }
 
 export function deriveSeed(
@@ -109,7 +110,7 @@ export function deriveSeed(
   z = mix64(z ^ BigInt(side));
   z = mix64(z ^ BigInt(designIndex));
   z = mix64(z ^ BigInt(robotIndex));
-  return Number(z & 0xffffffffn);
+  return Number(z & UINT32_MASK);
 }
 
 export function createBotRng(

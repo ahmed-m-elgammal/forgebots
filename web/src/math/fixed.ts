@@ -47,7 +47,9 @@ function saturateNumber(raw: number): Fixed {
   return asFixed(raw);
 }
 
-function assertInteger(value: number, label: string): void {
+// Shared across the math modules (angle.ts validates headings with the
+// same rule — one definition, G5).
+export function assertInteger(value: number, label: string): void {
   if (!Number.isInteger(value)) {
     throw new TypeError(`${label} must be an integer, got ${value}`);
   }
@@ -65,6 +67,18 @@ export function rawValue(value: Fixed): number {
   return value;
 }
 
+// Exact integer division rounding half away from zero — the one rounding
+// rule for millimetre conversion, shared by both directions (G5: the
+// halfway cases are pinned by tests in one place).
+function divRoundHalfAway(numerator: bigint, denominator: bigint): bigint {
+  const quotient = numerator / denominator;
+  const remainder = numerator % denominator;
+  const magnitude = remainder < 0n ? -remainder : remainder;
+  const absDenominator = denominator < 0n ? -denominator : denominator;
+  if (magnitude * 2n < absDenominator) return quotient;
+  return numerator < 0n ? quotient - 1n : quotient + 1n;
+}
+
 // Rounds half away from zero: 1 mm → 66 raw (65.536 exactly). Millimetres
 // beyond ±MAX_MM would round outside Q16.16, which is an impossible world
 // coordinate, not a saturation case.
@@ -74,26 +88,12 @@ export function fromMm(mm: number): Fixed {
     throw new RangeError(`millimetre length out of Q16.16 range, got ${mm}`);
   }
   const scaled = BigInt(mm) * BigInt(RAW_PER_UNIT);
-  const quotient = scaled / BigInt(MM_PER_UNIT);
-  const remainder = scaled % BigInt(MM_PER_UNIT);
-  const magnitude = remainder < 0n ? -remainder : remainder;
-  const rounded =
-    magnitude * 2n >= BigInt(MM_PER_UNIT)
-      ? quotient + (scaled < 0n ? -1n : 1n)
-      : quotient;
-  return asFixed(Number(rounded));
+  return asFixed(Number(divRoundHalfAway(scaled, BigInt(MM_PER_UNIT))));
 }
 
 export function toMm(value: Fixed): number {
   const scaled = BigInt(value) * BigInt(MM_PER_UNIT);
-  const quotient = scaled / BigInt(RAW_PER_UNIT);
-  const remainder = scaled % BigInt(RAW_PER_UNIT);
-  const magnitude = remainder < 0n ? -remainder : remainder;
-  const rounded =
-    magnitude * 2n >= BigInt(RAW_PER_UNIT)
-      ? quotient + (scaled < 0n ? -1n : 1n)
-      : quotient;
-  return Number(rounded);
+  return Number(divRoundHalfAway(scaled, BigInt(RAW_PER_UNIT)));
 }
 
 export function add(a: Fixed, b: Fixed): Fixed {
@@ -166,14 +166,16 @@ export function round(value: Fixed): Fixed {
   return saturateNumber(negative ? -units * RAW_PER_UNIT : units * RAW_PER_UNIT);
 }
 
-
 // floor(sqrt(wide)) for a non-negative bigint, by integer Newton iteration.
+// The first guess is 2^ceil(bits/2), an over-estimate reached in one step,
+// so the walk down to the fixed point takes a handful of iterations instead
+// of one per bit — distance() runs this every tick for every robot.
 export function isqrt(wide: bigint): number {
   if (wide < 0n) {
     throw new RangeError(`isqrt of negative value ${wide}`);
   }
   if (wide === 0n) return 0;
-  let r = wide;
+  let r = 1n << BigInt((wide.toString(2).length + 1) >> 1);
   let next = (r + wide / r) >> 1n;
   while (next < r) {
     r = next;

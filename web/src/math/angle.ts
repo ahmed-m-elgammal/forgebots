@@ -9,6 +9,8 @@
 // operation, normalised into (−π, π] — so −π maps to +π and a heading is
 // always a single canonical integer.
 
+import { assertInteger } from './fixed';
+
 declare const angleBrand: unique symbol;
 
 export type Angle = number & { readonly [angleBrand]: true };
@@ -17,12 +19,6 @@ export const BRADS_PER_TURN = 65536;
 const HALF_TURN = 32768;
 
 export const ANGLE_PI: Angle = 32768 as Angle;
-
-function assertInteger(value: number, label: string): void {
-  if (!Number.isInteger(value)) {
-    throw new TypeError(`${label} must be an integer, got ${value}`);
-  }
-}
 
 // Accepts any integer heading — including unbounded accumulators — and
 // normalises into (−π, π]. Every Angle in circulation satisfies that

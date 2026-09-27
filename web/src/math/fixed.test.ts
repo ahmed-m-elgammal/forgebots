@@ -307,4 +307,19 @@ describe('sqrt / isqrt', () => {
     expect(isqrt(16n)).toBe(4);
     expect(isqrt(16n)).toBe(isqrt(16n));
   });
+
+  it('[boundary] the widest distances a match can ask for stay exact', () => {
+    // 2 × (2^31-1)^2 is the largest sum of squares two Q16.16 axes can
+    // produce; the seeded Newton guess must land the exact floor (T6),
+    // verified by the defining property instead of a hand-computed value.
+    const widestSum = (2n ** 31n - 1n) ** 2n * 2n;
+    const root = BigInt(isqrt(widestSum));
+    expect(root * root).toBeLessThanOrEqual(widestSum);
+    expect((root + 1n) * (root + 1n)).toBeGreaterThan(widestSum);
+    expect(isqrt(widestSum)).toBe(isqrt(widestSum));
+    expect(isqrt(1n << 62n)).toBe(2147483648);
+    expect(isqrt(2n)).toBe(1);
+    expect(isqrt(3n)).toBe(1);
+    expect(isqrt(4n)).toBe(2);
+  });
 });

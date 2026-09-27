@@ -9,8 +9,11 @@
 // IR shape: 09 § 3 (JSON-serialisable tree, no bytecode, D2).
 // Cost table: 09 § 4, charged identically by the static estimator and
 // (in Phase 3) by the VM. The 09 § 4 band "1–2" for cheap arithmetic is
-// pinned here: single-step integer ops (+, -, comparisons, not) cost 1;
-// shift- or multi-operand ops (*, abs, min, max, and, or) cost 2.
+// pinned in BUILTINS: single-step integer ops (+, -, comparisons, not)
+// cost 1; shift- or multi-operand ops (*, abs, min, max, and, or) cost 2.
+// The table has no `let` or `return` row: a `let` binding is a local write
+// and bills COST_STORE; `return` bills nothing — leaving a frame is not a
+// step.
 //
 // Reconciliations this file records (spec is upstream; none are silent):
 // - 23 § 5.2 lists set / repeat / return among the parser's forms; 09 § 2.2
@@ -66,7 +69,20 @@ const EN_MESSAGES = {
     "User identifiers may not contain '.' — got '{name}' (only self.* is dotted).",
   E_SELF_FIELD:
     "Unknown self field '{field}' — known fields: x, y, hp, shield, energy, biomass, alive.",
-  E_SYM_UNKNOWN: "Unknown symbol '{name}' — {reason}.",
+  E_SYM_BUILTIN_VALUE:
+    "'{name}' is a builtin — builtins are not values, call it as ({name}).",
+  E_SYM_FN_VALUE:
+    "'{name}' is a defn — functions are not values, use (call {name}).",
+  E_SYM_UNRESOLVED:
+    "Unknown symbol '{name}' — no local with this name is in scope.",
+  E_SYM_NO_TARGET:
+    "Unknown symbol '{name}' — no builtin or defn with this name.",
+  E_SYM_SELF_BARE:
+    "'self' is a namespace, not a value — read it as (self.x), (self.y), …",
+  E_ARITY_MIN: '{form} expects at least {min} argument(s), got {got}.',
+  E_ARITY_EXACT: '{form} expects exactly {count} argument(s), got {got}.',
+  E_ARITY_RANGE:
+    '{form} expects between {min} and {max} arguments, got {got}.',
   E_DEFN_DUP: "Function '{name}' is defined more than once.",
   E_ENTRY_MULTIPLE:
     'Exactly one (every-tick …) is allowed per program, found {count} (09 § 5 rule 8).',
@@ -182,95 +198,152 @@ export const STACK_LIMIT = 64;
 export const LOCALS_LIMIT = 32;
 export const INT_LITERAL_LIMIT = 2147483647;
 
-// Cost per builtin call node; argument nodes bill separately.
-export const BUILTIN_COSTS: Readonly<Record<string, number>> = {
-  '+': 1,
-  '-': 1,
-  '<': 1,
-  '<=': 1,
-  '>': 1,
-  '>=': 1,
-  '==': 1,
-  '!=': 1,
-  not: 1,
-  '*': 2,
-  abs: 2,
-  min: 2,
-  max: 2,
-  and: 2,
-  or: 2,
-  '/': 3,
-  mod: 3,
-  'some?': 3,
-  'hit-x': 3,
-  'hit-y': 3,
-  'food-x': 3,
-  'food-y': 3,
-  time: 1,
-  'rng-int': 4,
-  dist: 6,
-  sin: 6,
-  cos: 6,
-  atan2: 6,
-  radar: 25,
-  scan: 20,
-  food: 18,
-  ally: 25,
-  enemy: 25,
-  move: 30,
-  'move-at': 30,
-  aim: 20,
-  fire: 40,
-  eat: 25,
-  build: 50,
-  say: 10,
+type ValType = 'int' | 'bool' | 'option' | 'void' | 'unknown';
+
+// Display names for the verifier's types — the DSL's published vocabulary
+// (tier-2 domain strings, rule 4), owned here and nowhere else.
+const TYPENAMES: Readonly<Record<ValType, string>> = {
+  int: 'int',
+  bool: 'bool',
+  option: 'Option',
+  void: 'void',
+  unknown: 'an untyped parameter',
 };
 
-// (min, max) argument count per builtin; -1 max means variadic.
-const BUILTIN_ARITY: Readonly<Record<string, [number, number]>> = {
-  '+': [1, -1],
-  '-': [1, -1],
-  '*': [1, -1],
-  '/': [2, -1],
-  mod: [2, 2],
-  abs: [1, 1],
-  min: [1, -1],
-  max: [1, -1],
-  '<': [2, 2],
-  '<=': [2, 2],
-  '>': [2, 2],
-  '>=': [2, 2],
-  '==': [2, 2],
-  '!=': [2, 2],
-  not: [1, 1],
-  and: [1, -1],
-  or: [1, -1],
-  'some?': [1, 1],
-  radar: [0, 0],
-  scan: [1, 1],
-  food: [0, 0],
-  ally: [0, 0],
-  enemy: [0, 0],
-  move: [2, 2],
-  'move-at': [2, 2],
-  aim: [1, 1],
-  fire: [0, 0],
-  eat: [0, 0],
-  build: [1, 1],
-  say: [2, 2],
-  time: [0, 0],
-  'rng-int': [1, 1],
-  dist: [4, 4],
-  'hit-x': [1, 1],
-  'hit-y': [1, 1],
-  'food-x': [1, 1],
-  'food-y': [1, 1],
-  sin: [1, 1],
-  cos: [1, 1],
-  atan2: [2, 2],
+// 09 § 4 costs for the IR ops that are not builtin calls. The table gives
+// `if` and the loop forms their own rows; it has no `let` or `return` row —
+// a let binding is a local write and bills COST_STORE; return bills
+// nothing, since leaving a frame is not a step.
+const COST_LITERAL = 1;
+const COST_VAR_READ = 1;
+const COST_SELF = 3;
+const COST_STORE = 2;
+const COST_IF = 2;
+const COST_LOOP = 4;
+const COST_USER_CALL = 4;
+
+// 09 § 2.4: the editor hints when a move axis is a non-zero literal below
+// 1000 — the "move 1 0" beginner bug. Throttle is Q16.16: 65536 = 100 %.
+const MOVE_TINY_THRESHOLD = 1000;
+
+// The DSL builtin vocabulary is typed exactly once (tier-2 domain strings,
+// rule 4); the cost/arity/signature table below is keyed through it, so a
+// name can never be present in one table and missing from another (G5).
+const BUILTIN_NAME = {
+  add: '+',
+  sub: '-',
+  mul: '*',
+  div: '/',
+  mod: 'mod',
+  abs: 'abs',
+  min: 'min',
+  max: 'max',
+  lessThan: '<',
+  lessOrEqual: '<=',
+  greaterThan: '>',
+  greaterOrEqual: '>=',
+  equals: '==',
+  notEquals: '!=',
+  not: 'not',
+  and: 'and',
+  or: 'or',
+  some: 'some?',
+  radar: 'radar',
+  scan: 'scan',
+  food: 'food',
+  ally: 'ally',
+  enemy: 'enemy',
+  move: 'move',
+  moveAt: 'move-at',
+  aim: 'aim',
+  fire: 'fire',
+  eat: 'eat',
+  build: 'build',
+  say: 'say',
+  time: 'time',
+  rngInt: 'rng-int',
+  dist: 'dist',
+  sin: 'sin',
+  cos: 'cos',
+  atan2: 'atan2',
+  hitX: 'hit-x',
+  hitY: 'hit-y',
+  foodX: 'food-x',
+  foodY: 'food-y',
+} as const;
+
+type BuiltinName = (typeof BUILTIN_NAME)[keyof typeof BUILTIN_NAME];
+
+export interface BuiltinSpec {
+  cost: number;
+  // (min, max) argument count; a max of -1 means variadic.
+  arity: readonly [number, number];
+  arg: ValType;
+  ret: ValType;
+}
+
+// One row per builtin: 09 § 4's cost column plus § 5's operand signature.
+// Argument nodes bill separately; the estimator and the Phase 3 VM both
+// charge through this table.
+export const BUILTINS: Readonly<Record<BuiltinName, BuiltinSpec>> = {
+  [BUILTIN_NAME.add]: { cost: 1, arity: [1, -1], arg: 'int', ret: 'int' },
+  [BUILTIN_NAME.sub]: { cost: 1, arity: [1, -1], arg: 'int', ret: 'int' },
+  [BUILTIN_NAME.mul]: { cost: 2, arity: [1, -1], arg: 'int', ret: 'int' },
+  [BUILTIN_NAME.div]: { cost: 3, arity: [2, -1], arg: 'int', ret: 'int' },
+  [BUILTIN_NAME.mod]: { cost: 3, arity: [2, 2], arg: 'int', ret: 'int' },
+  [BUILTIN_NAME.abs]: { cost: 2, arity: [1, 1], arg: 'int', ret: 'int' },
+  [BUILTIN_NAME.min]: { cost: 2, arity: [1, -1], arg: 'int', ret: 'int' },
+  [BUILTIN_NAME.max]: { cost: 2, arity: [1, -1], arg: 'int', ret: 'int' },
+  [BUILTIN_NAME.lessThan]: { cost: 1, arity: [2, 2], arg: 'int', ret: 'bool' },
+  [BUILTIN_NAME.lessOrEqual]: { cost: 1, arity: [2, 2], arg: 'int', ret: 'bool' },
+  [BUILTIN_NAME.greaterThan]: { cost: 1, arity: [2, 2], arg: 'int', ret: 'bool' },
+  [BUILTIN_NAME.greaterOrEqual]: { cost: 1, arity: [2, 2], arg: 'int', ret: 'bool' },
+  [BUILTIN_NAME.equals]: { cost: 1, arity: [2, 2], arg: 'int', ret: 'bool' },
+  [BUILTIN_NAME.notEquals]: { cost: 1, arity: [2, 2], arg: 'int', ret: 'bool' },
+  [BUILTIN_NAME.not]: { cost: 1, arity: [1, 1], arg: 'bool', ret: 'bool' },
+  [BUILTIN_NAME.and]: { cost: 2, arity: [1, -1], arg: 'bool', ret: 'bool' },
+  [BUILTIN_NAME.or]: { cost: 2, arity: [1, -1], arg: 'bool', ret: 'bool' },
+  [BUILTIN_NAME.some]: { cost: 3, arity: [1, 1], arg: 'option', ret: 'bool' },
+  [BUILTIN_NAME.radar]: { cost: 25, arity: [0, 0], arg: 'int', ret: 'option' },
+  [BUILTIN_NAME.scan]: { cost: 20, arity: [1, 1], arg: 'int', ret: 'option' },
+  [BUILTIN_NAME.food]: { cost: 18, arity: [0, 0], arg: 'int', ret: 'option' },
+  [BUILTIN_NAME.ally]: { cost: 25, arity: [0, 0], arg: 'int', ret: 'option' },
+  [BUILTIN_NAME.enemy]: { cost: 25, arity: [0, 0], arg: 'int', ret: 'option' },
+  [BUILTIN_NAME.move]: { cost: 30, arity: [2, 2], arg: 'int', ret: 'void' },
+  [BUILTIN_NAME.moveAt]: { cost: 30, arity: [2, 2], arg: 'int', ret: 'void' },
+  [BUILTIN_NAME.aim]: { cost: 20, arity: [1, 1], arg: 'int', ret: 'void' },
+  [BUILTIN_NAME.fire]: { cost: 40, arity: [0, 0], arg: 'int', ret: 'void' },
+  [BUILTIN_NAME.eat]: { cost: 25, arity: [0, 0], arg: 'int', ret: 'void' },
+  [BUILTIN_NAME.build]: { cost: 50, arity: [1, 1], arg: 'int', ret: 'void' },
+  [BUILTIN_NAME.say]: { cost: 10, arity: [2, 2], arg: 'int', ret: 'void' },
+  [BUILTIN_NAME.time]: { cost: 1, arity: [0, 0], arg: 'int', ret: 'int' },
+  [BUILTIN_NAME.rngInt]: { cost: 4, arity: [1, 1], arg: 'int', ret: 'int' },
+  [BUILTIN_NAME.dist]: { cost: 6, arity: [4, 4], arg: 'int', ret: 'int' },
+  [BUILTIN_NAME.sin]: { cost: 6, arity: [1, 1], arg: 'int', ret: 'int' },
+  [BUILTIN_NAME.cos]: { cost: 6, arity: [1, 1], arg: 'int', ret: 'int' },
+  [BUILTIN_NAME.atan2]: { cost: 6, arity: [2, 2], arg: 'int', ret: 'int' },
+  [BUILTIN_NAME.hitX]: { cost: 3, arity: [1, 1], arg: 'option', ret: 'int' },
+  [BUILTIN_NAME.hitY]: { cost: 3, arity: [1, 1], arg: 'option', ret: 'int' },
+  [BUILTIN_NAME.foodX]: { cost: 3, arity: [1, 1], arg: 'option', ret: 'int' },
+  [BUILTIN_NAME.foodY]: { cost: 3, arity: [1, 1], arg: 'option', ret: 'int' },
 };
 
-const PAYLOAD_GETTERS = new Set(['hit-x', 'hit-y', 'food-x', 'food-y']);
+const BUILTIN_NAMES: ReadonlySet<string> = new Set(Object.keys(BUILTINS));
+
+// Option payload getters (09 § 2.3) fall out of the table — arg Option,
+// return int — instead of a second hand-written list (G5).
+const PAYLOAD_GETTERS: ReadonlySet<string> = new Set(
+  Object.entries(BUILTINS)
+    .filter(([, spec]) => spec.arg === 'option' && spec.ret === 'int')
+    .map(([name]) => name),
+);
+
+// Own-property lookup: a plain record answers for 'toString' and friends
+// through Object.prototype, which would forge a builtin out of thin air.
+function builtinSpec(name: string): BuiltinSpec | undefined {
+  if (!Object.prototype.hasOwnProperty.call(BUILTINS, name)) return undefined;
+  return BUILTINS[name as BuiltinName];
+}
 
 // ---------------------------------------------------------------------------
 // Tokenizer (09 § 2.1 surface; every token carries line and column)
@@ -337,19 +410,19 @@ export function tokenize(src: string): Token[] {
     if (isDigit(ch) || (ch === '-' && isDigit(src[i + 1] ?? ''))) {
       const startLine = line;
       const startCol = col;
-      let text = '';
+      const start = i;
       if (ch === '-') {
-        text = '-';
         i += 1;
-        col += 1;
       }
       while (i < src.length && isDigit(src[i] as string)) {
-        text += src[i];
         i += 1;
-        col += 1;
       }
+      col += i - start;
+      const text = src.slice(start, i);
+      // Lexer errors point at the offending character: after the digit run,
+      // col is exactly the column of the next unread character.
       if (src[i] === '.') {
-        fail('E_LEX_FLOAT', { line, col: col + 1 });
+        fail('E_LEX_FLOAT', { line, col });
       }
       if (i < src.length && isNameChar(src[i] as string)) {
         fail('E_LEX_CHAR', { line, col }, { ch: src[i] as string });
@@ -374,31 +447,30 @@ export function tokenize(src: string): Token[] {
     if (isNameStart(ch)) {
       const startLine = line;
       const startCol = col;
-      let text = '';
+      const start = i;
       while (i < src.length && isNameChar(src[i] as string)) {
-        text += src[i];
         i += 1;
-        col += 1;
       }
+      col += i - start;
       if (src[i] === '.') {
-        i += 1;
-        col += 1;
-        text += '.';
-        if (!isNameChar(src[i] ?? '')) {
+        // A dotted name is exactly one dot plus a field: self.x — never
+        // a.b.c, never a trailing dot (09 § 2.2 naming rules).
+        if (!isNameChar(src[i + 1] ?? '')) {
           fail('E_LEX_DOT', { line, col });
         }
+        const dotStart = i;
+        i += 1;
         while (i < src.length && isNameChar(src[i] as string)) {
-          text += src[i];
           i += 1;
-          col += 1;
         }
+        col += i - dotStart;
         if (src[i] === '.') {
-          fail('E_LEX_DOT', { line, col: col + 1 });
+          fail('E_LEX_DOT', { line, col });
         }
       }
       tokens.push({
         kind: 'name',
-        text,
+        text: src.slice(start, i),
         line: startLine,
         col: startCol,
       });
@@ -459,30 +531,7 @@ interface DefnAst {
   at: At;
 }
 
-const SPECIAL_FORMS = new Set([
-  'let',
-  'set',
-  'if',
-  'while',
-  'loop',
-  'repeat',
-  'do',
-  'cond',
-  'when',
-  'return',
-  'defn',
-  'every-tick',
-  'call',
-]);
-
-const RESERVED_NAMES = new Set([
-  ...SPECIAL_FORMS,
-  ...Object.keys(BUILTIN_COSTS),
-  'else',
-  'true',
-  'false',
-  'self',
-]);
+const SELF_PREFIX = 'self.';
 
 const SELF_FIELDS: Readonly<Record<string, 'int' | 'bool'>> = {
   x: 'int',
@@ -509,6 +558,57 @@ interface ParsedProgram {
   defns: DefnAst[];
   entries: { name: string; at: At }[];
 }
+
+// One row per top-level form; the keys are the single owner of those
+// strings, and SPECIAL_FORMS derives from both maps (G5).
+type TopLevelAst =
+  | { kind: 'defn'; defn: DefnAst }
+  | { kind: 'entry'; entry: { name: string; at: At } };
+
+const TOP_LEVEL_PARSERS: ReadonlyMap<
+  string,
+  (cursor: TokenCursor, at: At) => TopLevelAst
+> = new Map<string, (cursor: TokenCursor, at: At) => TopLevelAst>([
+  ['defn', (cursor, at) => ({ kind: 'defn', defn: parseDefn(cursor, at) })],
+  [
+    'every-tick',
+    (cursor, at) => ({ kind: 'entry', entry: parseEveryTick(cursor, at) }),
+  ],
+]);
+
+// One row per special form (09 § 2.2 plus 23 § 5.2's set/repeat/return);
+// parseExpr dispatches through this map instead of an if-chain (G23), and
+// the reserved-name sets derive from it. `repeat` is the plan's spelling of
+// the bounded `loop` form.
+type FormParser = (cursor: TokenCursor, at: At) => Ast;
+
+const FORM_PARSERS: ReadonlyMap<string, FormParser> = new Map([
+  ['let', parseLet],
+  ['set', parseSet],
+  ['if', parseIf],
+  ['while', parseWhile],
+  ['loop', (cursor, at) => parseLoop(cursor, at, 'loop')],
+  ['repeat', (cursor, at) => parseLoop(cursor, at, 'repeat')],
+  ['do', parseDo],
+  ['cond', parseCond],
+  ['when', parseWhen],
+  ['return', parseReturn],
+  ['call', parseCall],
+]);
+
+const SPECIAL_FORMS: ReadonlySet<string> = new Set([
+  ...FORM_PARSERS.keys(),
+  ...TOP_LEVEL_PARSERS.keys(),
+]);
+
+const RESERVED_NAMES: ReadonlySet<string> = new Set([
+  ...SPECIAL_FORMS,
+  ...BUILTIN_NAMES,
+  'else',
+  'true',
+  'false',
+  'self',
+]);
 
 class TokenCursor {
   readonly tokens: Token[];
@@ -560,15 +660,16 @@ function parseProgram(tokens: Token[]): ParsedProgram {
     }
     cursor.next();
     const at: At = { line: inner.line, col: inner.col };
-    if (inner.text === 'defn') {
-      defns.push(parseDefn(cursor, at));
-      continue;
+    const parseTop = TOP_LEVEL_PARSERS.get(inner.text);
+    if (parseTop === undefined) {
+      fail('E_TOP_LEVEL', at, { form: inner.text });
     }
-    if (inner.text === 'every-tick') {
-      entries.push(parseEveryTick(cursor, at));
-      continue;
+    const parsed = parseTop(cursor, at);
+    if (parsed.kind === 'defn') {
+      defns.push(parsed.defn);
+    } else {
+      entries.push(parsed.entry);
     }
-    fail('E_TOP_LEVEL', at, { form: inner.text });
   }
 
   if (defns.length + entries.length === 0) {
@@ -635,10 +736,7 @@ function parseEveryTick(cursor: TokenCursor, at: At): { name: string; at: At } {
   if (token === undefined) {
     fail('E_ARITY', at, { form: 'every-tick', expected: 'a function name', got: 'end of input' });
   }
-  if (token.kind === 'open' || token.kind === 'close') {
-    fail('E_ENTRY_INLINE', { line: token.line, col: token.col });
-  }
-  if (token.kind === 'number') {
+  if (token.kind !== 'name') {
     fail('E_ENTRY_INLINE', { line: token.line, col: token.col });
   }
   if (isDotted(token.text)) {
@@ -711,30 +809,24 @@ function parseExpr(cursor: TokenCursor): Ast {
     const field = parseSelfHead(head.text, headAt, cursor);
     return { kind: 'self', field, at };
   }
-  if (head.text === 'defn' || head.text === 'every-tick') {
+  if (TOP_LEVEL_PARSERS.has(head.text)) {
     fail('E_TOP_LEVEL', headAt, { form: head.text });
   }
-  if (head.text === 'let') return parseLet(cursor, at);
-  if (head.text === 'set') return parseSet(cursor, at);
-  if (head.text === 'if') return parseIf(cursor, at);
-  if (head.text === 'while') return parseWhile(cursor, at);
-  if (head.text === 'loop' || head.text === 'repeat') return parseLoop(cursor, at, head.text);
-  if (head.text === 'do') return parseDo(cursor, at);
-  if (head.text === 'cond') return parseCond(cursor, at);
-  if (head.text === 'when') return parseWhen(cursor, at);
-  if (head.text === 'return') return parseReturn(cursor, at);
-  if (head.text === 'call') return parseCall(cursor, at);
+  const parseForm = FORM_PARSERS.get(head.text);
+  if (parseForm !== undefined) return parseForm(cursor, at);
   return parseCallArgs(cursor, head.text, at);
 }
 
 // A dotted head must be exactly self.<known field>; anything else is either
 // a misspelled field or a dotted user identifier (09 § 2.2 naming rules).
+// Own-property check: 'toString' in SELF_FIELDS is true through
+// Object.prototype and must not pass as a field.
 function parseSelfHead(text: string, at: At, cursor: TokenCursor): string {
-  if (!text.startsWith('self.')) {
+  if (!text.startsWith(SELF_PREFIX)) {
     fail('E_DOT_NAME', at, { name: text });
   }
-  const field = text.slice('self.'.length);
-  if (!(field in SELF_FIELDS)) {
+  const field = text.slice(SELF_PREFIX.length);
+  if (!Object.prototype.hasOwnProperty.call(SELF_FIELDS, field)) {
     fail('E_SELF_FIELD', at, { field });
   }
   const extra = cursor.peek();
@@ -751,20 +843,14 @@ function parseSelfHead(text: string, at: At, cursor: TokenCursor): string {
 function parseNameExpr(text: string, at: At): Ast {
   if (text === 'true') return { kind: 'bool', value: true, at };
   if (text === 'false') return { kind: 'bool', value: false, at };
-  if (Object.prototype.hasOwnProperty.call(BUILTIN_COSTS, text)) {
-    fail('E_SYM_UNKNOWN', at, {
-      name: text,
-      reason: `builtins are not values — call it as (${text})`,
-    });
+  if (BUILTIN_NAMES.has(text)) {
+    fail('E_SYM_BUILTIN_VALUE', at, { name: text });
   }
   if (RESERVED_NAMES.has(text)) {
     fail('E_NAME_RESERVED', at, { name: text });
   }
-  if (text === 'self' || text.startsWith('self.')) {
-    fail('E_SYM_UNKNOWN', at, {
-      name: text,
-      reason: 'the self namespace is read as (self.x), (self.y), …',
-    });
+  if (text === 'self' || text.startsWith(SELF_PREFIX)) {
+    fail('E_SYM_SELF_BARE', at, { name: text });
   }
   return { kind: 'name', id: text, at };
 }
@@ -1221,14 +1307,6 @@ function literalBound(ast: Ast, form: string, at: At): number {
 // Verifier (09 § 5, the nine rules) and the static cycle estimator
 // ---------------------------------------------------------------------------
 
-type ValType = 'int' | 'bool' | 'option' | 'void' | 'unknown';
-
-function describeType(t: ValType): string {
-  if (t === 'option') return 'Option';
-  if (t === 'unknown') return 'an untyped parameter';
-  return t;
-}
-
 // An Option occupies two stack slots (tag + payload, 09 § 2.3); a value one;
 // void nothing. An unconstrained parameter may be an Option, so it reserves
 // two — the conservative direction (G4).
@@ -1249,49 +1327,6 @@ export interface ChassisContext {
 export interface CompileOptions {
   chassis?: ChassisContext;
 }
-
-const BUILTIN_SIGS: Readonly<Record<string, { arg: ValType; ret: ValType }>> = {
-  '+': { arg: 'int', ret: 'int' },
-  '-': { arg: 'int', ret: 'int' },
-  '*': { arg: 'int', ret: 'int' },
-  '/': { arg: 'int', ret: 'int' },
-  mod: { arg: 'int', ret: 'int' },
-  abs: { arg: 'int', ret: 'int' },
-  min: { arg: 'int', ret: 'int' },
-  max: { arg: 'int', ret: 'int' },
-  '<': { arg: 'int', ret: 'bool' },
-  '<=': { arg: 'int', ret: 'bool' },
-  '>': { arg: 'int', ret: 'bool' },
-  '>=': { arg: 'int', ret: 'bool' },
-  '==': { arg: 'int', ret: 'bool' },
-  '!=': { arg: 'int', ret: 'bool' },
-  not: { arg: 'bool', ret: 'bool' },
-  and: { arg: 'bool', ret: 'bool' },
-  or: { arg: 'bool', ret: 'bool' },
-  'some?': { arg: 'option', ret: 'bool' },
-  'hit-x': { arg: 'option', ret: 'int' },
-  'hit-y': { arg: 'option', ret: 'int' },
-  'food-x': { arg: 'option', ret: 'int' },
-  'food-y': { arg: 'option', ret: 'int' },
-  radar: { arg: 'int', ret: 'option' },
-  scan: { arg: 'int', ret: 'option' },
-  food: { arg: 'int', ret: 'option' },
-  ally: { arg: 'int', ret: 'option' },
-  enemy: { arg: 'int', ret: 'option' },
-  move: { arg: 'int', ret: 'void' },
-  'move-at': { arg: 'int', ret: 'void' },
-  aim: { arg: 'int', ret: 'void' },
-  fire: { arg: 'int', ret: 'void' },
-  eat: { arg: 'int', ret: 'void' },
-  build: { arg: 'int', ret: 'void' },
-  say: { arg: 'int', ret: 'void' },
-  time: { arg: 'int', ret: 'int' },
-  'rng-int': { arg: 'int', ret: 'int' },
-  dist: { arg: 'int', ret: 'int' },
-  sin: { arg: 'int', ret: 'int' },
-  cos: { arg: 'int', ret: 'int' },
-  atan2: { arg: 'int', ret: 'int' },
-};
 
 interface VarInfo {
   type: ValType;
@@ -1356,8 +1391,8 @@ function expectType(
   }
   frame.errors.push(
     diagnostic('E_TYPE', at, {
-      expected: describeType(expected),
-      got: describeType(result.type),
+      expected: TYPENAMES[expected],
+      got: TYPENAMES[result.type],
     }),
   );
   return { ...result, type: expected };
@@ -1378,8 +1413,18 @@ function checkCondition(
     return;
   }
   frame.errors.push(
-    diagnostic('E_CONDITION_TYPE', at, { got: describeType(result.type) }),
+    diagnostic('E_CONDITION_TYPE', at, { got: TYPENAMES[result.type] }),
   );
+}
+
+// Own-property lookup for the walk: the blocks path feeds the verifier
+// without the parser, and a plain record answers for 'toString' through
+// Object.prototype.
+function selfFieldType(field: string): 'int' | 'bool' | undefined {
+  if (!Object.prototype.hasOwnProperty.call(SELF_FIELDS, field)) {
+    return undefined;
+  }
+  return SELF_FIELDS[field];
 }
 
 function walk(node: IrNode, scope: Scope, base: number, fn: FnCheck, frame: VerifyFrame): WalkResult {
@@ -1396,22 +1441,27 @@ function walk(node: IrNode, scope: Scope, base: number, fn: FnCheck, frame: Veri
 function walkInner(node: IrNode, scope: Scope, base: number, fn: FnCheck, frame: VerifyFrame): WalkResult {
   switch (node.op) {
     case 'num':
-      return { type: 'int', cost: 1, depth: base + 1 };
+      return { type: 'int', cost: COST_LITERAL, depth: base + 1 };
     case 'bool':
-      return { type: 'bool', cost: 1, depth: base + 1 };
+      return { type: 'bool', cost: COST_LITERAL, depth: base + 1 };
     case 'self':
-      return { type: SELF_FIELDS[node.field] ?? 'int', cost: 3, depth: base + 1 };
+      return { type: selfFieldType(node.field) ?? 'int', cost: COST_SELF, depth: base + 1 };
     case 'var': {
       const info = resolve(scope, node.name);
       const at = atOf(node);
       if (info === undefined) {
-        const reason = frame.fns.has(node.name)
-          ? `functions are not values — use (call ${node.name})`
-          : 'no local with this name is in scope';
-        frame.errors.push(diagnostic('E_SYM_UNKNOWN', at, { name: node.name, reason }));
-        return { type: 'int', cost: 1, depth: base + 1 };
+        const code: DiagnosticCode = frame.fns.has(node.name)
+          ? 'E_SYM_FN_VALUE'
+          : 'E_SYM_UNRESOLVED';
+        frame.errors.push(diagnostic(code, at, { name: node.name }));
+        return { type: 'int', cost: COST_VAR_READ, depth: base + 1 };
       }
-      return { type: info.type, cost: 1, depth: base + slotsOf(info.type), varInfo: info };
+      return {
+        type: info.type,
+        cost: COST_VAR_READ,
+        depth: base + slotsOf(info.type),
+        varInfo: info,
+      };
     }
     case 'store': {
       const target = resolve(scope, node.name);
@@ -1424,15 +1474,15 @@ function walkInner(node: IrNode, scope: Scope, base: number, fn: FnCheck, frame:
         // Option occupies two slots, an int one (09 § 2.3).
         frame.errors.push(
           diagnostic('E_TYPE', at, {
-            expected: describeType(target.type),
-            got: describeType(value.type),
+            expected: TYPENAMES[target.type],
+            got: TYPENAMES[value.type],
           }),
         );
       } else if (target.type === 'unknown' && value.type !== 'void') {
         target.type = value.type;
       }
       if (target !== undefined) target.provenSome = false;
-      return { type: 'void', cost: 2 + value.cost, depth: value.depth };
+      return { type: 'void', cost: COST_STORE + value.cost, depth: value.depth };
     }
     case 'do': {
       let type: ValType = 'void';
@@ -1455,11 +1505,14 @@ function walkInner(node: IrNode, scope: Scope, base: number, fn: FnCheck, frame:
         const value = walk(binding.value, childScope, cursor, fn, frame);
         if (value.type === 'void') {
           frame.errors.push(
-            diagnostic('E_TYPE', atOf(binding.value), { expected: 'a value', got: 'void' }),
+            diagnostic('E_TYPE', atOf(binding.value), {
+              expected: 'a value',
+              got: TYPENAMES.void,
+            }),
           );
         }
         cursor += slotsOf(value.type);
-        cost += 2 + value.cost;
+        cost += COST_STORE + value.cost;
         depth = max2(depth, value.depth);
         fn.localsUsed += 1;
         if (fn.localsUsed > LOCALS_LIMIT && !fn.localsReported) {
@@ -1482,7 +1535,7 @@ function walkInner(node: IrNode, scope: Scope, base: number, fn: FnCheck, frame:
       checkCondition(cond, frame, atOf(node.cond));
       let provenVar: VarInfo | undefined;
       let priorProven = false;
-      if (node.cond.op === 'call' && node.cond.fn === 'some?' && node.cond.args.length === 1) {
+      if (node.cond.op === 'call' && node.cond.fn === BUILTIN_NAME.some && node.cond.args.length === 1) {
         const arg = node.cond.args[0];
         if (arg !== undefined && arg.op === 'var') {
           const info = resolve(scope, arg.name);
@@ -1514,13 +1567,13 @@ function walkInner(node: IrNode, scope: Scope, base: number, fn: FnCheck, frame:
       } else {
         frame.errors.push(
           diagnostic('E_TYPE', atOf(node), {
-            expected: describeType(then.type),
-            got: describeType(elseResult.type),
+            expected: TYPENAMES[then.type],
+            got: TYPENAMES[elseResult.type],
           }),
         );
         type = then.type;
       }
-      const cost = 2 + max2(then.cost, elseResult?.cost ?? 0);
+      const cost = COST_IF + max2(then.cost, elseResult?.cost ?? 0);
       const depth = max2(cond.depth, max2(then.depth, elseResult?.depth ?? base + 1));
       return { type, cost, depth };
     }
@@ -1531,13 +1584,13 @@ function walkInner(node: IrNode, scope: Scope, base: number, fn: FnCheck, frame:
       // Worst case charges the condition every iteration too — the § 4
       // formula "body × iterations" plus the re-tested guard (a worst-case
       // estimate may not under-count, D4).
-      const cost = 4 + node.maxIters * (cond.cost + body.cost);
+      const cost = COST_LOOP + node.maxIters * (cond.cost + body.cost);
       const depth = max2(cond.depth, body.depth);
       return { type: 'void', cost, depth };
     }
     case 'loop': {
       const body = walk(node.body, scope, base, fn, frame);
-      const cost = 4 + node.count * body.cost;
+      const cost = COST_LOOP + node.count * body.cost;
       return { type: 'void', cost, depth: max2(body.depth, base) };
     }
     case 'return': {
@@ -1577,35 +1630,30 @@ function walkCall(
     frame.errors.push(diagnostic('E_CALL_TARGET', at, { name: node.fn }));
   }
 
-  const arity = BUILTIN_ARITY[node.fn];
-  const sig = BUILTIN_SIGS[node.fn];
-  if (arity !== undefined && sig !== undefined) {
-    const [minArgs, maxArgs] = arity;
+  const spec = builtinSpec(node.fn);
+  if (spec !== undefined) {
+    const [minArgs, maxArgs] = spec.arity;
     if (
       node.args.length < minArgs ||
       (maxArgs !== -1 && node.args.length > maxArgs)
     ) {
       frame.errors.push(
-        diagnostic('E_ARITY', at, {
-          form: node.fn,
-          expected: describeArity(minArgs, maxArgs),
-          got: node.args.length,
-        }),
+        arityDiagnostic(node.fn, spec.arity, node.args.length, at),
       );
     }
     for (const result of argResults) {
-      if (node.fn === 'some?') {
+      if (node.fn === BUILTIN_NAME.some) {
         if (result.type === 'option') continue;
         if (result.type === 'unknown') {
           if (result.varInfo !== undefined) result.varInfo.type = 'option';
           continue;
         }
         frame.errors.push(
-          diagnostic('E_SOME_NON_OPTION', at, { got: describeType(result.type) }),
+          diagnostic('E_SOME_NON_OPTION', at, { got: TYPENAMES[result.type] }),
         );
         continue;
       }
-      expectType(result, sig.arg, frame, at);
+      expectType(result, spec.arg, frame, at);
     }
     if (PAYLOAD_GETTERS.has(node.fn)) {
       const first = node.args[0];
@@ -1621,23 +1669,28 @@ function walkCall(
         }
       }
     }
-    if (node.fn === 'move') {
+    if (node.fn === BUILTIN_NAME.move) {
       // 09 § 2.4: the editor warns when a move argument's magnitude is
-      // below 1000 — the "move 1 0" beginner bug. A literal 0 axis is the
-      // standard "no thrust on this axis" idiom (pebble, glow, reaper all
-      // ship (move v 0)), so only a non-zero tiny throttle hints at a
-      // units mistake.
+      // below MOVE_TINY_THRESHOLD — the "move 1 0" beginner bug. A literal 0
+      // axis is the standard "no thrust on this axis" idiom (pebble, glow,
+      // reaper all ship (move v 0)), so only a non-zero tiny throttle hints
+      // at a units mistake.
       for (const arg of node.args) {
-        if (arg.op === 'num' && arg.v !== 0 && arg.v > -1000 && arg.v < 1000) {
+        if (
+          arg.op === 'num' &&
+          arg.v !== 0 &&
+          arg.v > -MOVE_TINY_THRESHOLD &&
+          arg.v < MOVE_TINY_THRESHOLD
+        ) {
           frame.warnings.push(diagnostic('W_MOVE_TINY', at, { value: arg.v }));
           break;
         }
       }
     }
-    if (node.fn === 'fire' && frame.chassis !== null && !frame.chassis.hasWeapon) {
+    if (node.fn === BUILTIN_NAME.fire && frame.chassis !== null && !frame.chassis.hasWeapon) {
       frame.warnings.push(diagnostic('W_FIRE_NO_WEAPON', at));
     }
-    if (node.fn === 'build') {
+    if (node.fn === BUILTIN_NAME.build) {
       if (frame.chassis !== null && !frame.chassis.hasConstructor) {
         frame.warnings.push(diagnostic('W_BUILD_NO_CONSTRUCTOR', at));
       }
@@ -1655,29 +1708,27 @@ function walkCall(
         }
       }
     }
-    if (node.fn === 'rng-int') {
+    if (node.fn === BUILTIN_NAME.rngInt) {
       const bound = node.args[0];
       if (bound !== undefined && bound.op === 'num' && bound.v < 1) {
         frame.errors.push(diagnostic('E_RNG_BOUND', at, { n: bound.v }));
       }
     }
-    const ret = sig.ret;
     return {
-      type: ret,
-      cost: (BUILTIN_COSTS[node.fn] ?? 0) + argCost,
-      depth: max2(depth, base + slotsOf(ret)),
+      type: spec.ret,
+      cost: spec.cost + argCost,
+      depth: max2(depth, base + slotsOf(spec.ret)),
     };
   }
 
   const info = frame.fns.get(node.fn);
   if (info === undefined) {
-    frame.errors.push(
-      diagnostic('E_SYM_UNKNOWN', at, {
-        name: node.fn,
-        reason: 'no builtin or defn with this name',
-      }),
-    );
-    return { type: 'int', cost: 4 + node.args.length + argCost, depth: max2(depth, base + 1) };
+    frame.errors.push(diagnostic('E_SYM_NO_TARGET', at, { name: node.fn }));
+    return {
+      type: 'int',
+      cost: COST_USER_CALL + node.args.length + argCost,
+      depth: max2(depth, base + 1),
+    };
   }
   if (info.state === 'open') {
     frame.errors.push(
@@ -1685,7 +1736,11 @@ function walkCall(
         path: [...frame.callStack, node.fn].join(' → '),
       }),
     );
-    return { type: 'int', cost: 4 + node.args.length + argCost, depth: max2(depth, base + 1) };
+    return {
+      type: 'int',
+      cost: COST_USER_CALL + node.args.length + argCost,
+      depth: max2(depth, base + 1),
+    };
   }
   if (info.state === 'unchecked') {
     checkFn(info, frame);
@@ -1705,15 +1760,28 @@ function walkCall(
   });
   return {
     type: info.retType,
-    cost: 4 + node.args.length + info.bodyCost,
+    cost: COST_USER_CALL + node.args.length + info.bodyCost,
     depth: max2(depth, base + slotsOf(info.retType)),
   };
 }
 
-function describeArity(minArgs: number, maxArgs: number): string {
-  if (maxArgs === -1) return `at least ${minArgs} argument(s)`;
-  if (minArgs === maxArgs) return `exactly ${minArgs} argument(s)`;
-  return `between ${minArgs} and ${maxArgs} arguments`;
+// The three arity shapes get catalog sentences of their own — assembling
+// user-facing wording from fragments at the call site was a rule 3
+// violation, and the i18n catalog can now translate each shape as a whole.
+function arityDiagnostic(
+  form: string,
+  arity: readonly [number, number],
+  got: number,
+  at: At | undefined,
+): Diagnostic {
+  const [minArgs, maxArgs] = arity;
+  if (maxArgs === -1) {
+    return diagnostic('E_ARITY_MIN', at, { form, min: minArgs, got });
+  }
+  if (minArgs === maxArgs) {
+    return diagnostic('E_ARITY_EXACT', at, { form, count: minArgs, got });
+  }
+  return diagnostic('E_ARITY_RANGE', at, { form, min: minArgs, max: maxArgs, got });
 }
 
 function checkFn(info: FnInfo, frame: VerifyFrame): void {
@@ -1791,7 +1859,7 @@ function verifyProgram(lowered: LoweredProgram, chassis: ChassisContext | null):
       );
     } else {
       // The every-tick dispatch is a zero-argument user call (09 § 4).
-      cycleEstimate = 4 + info.bodyCost;
+      cycleEstimate = COST_USER_CALL + info.bodyCost;
       if (cycleEstimate > CYCLE_BUDGET) {
         errors.push(
           diagnostic('E_BUDGET', lowered.entryAt, {

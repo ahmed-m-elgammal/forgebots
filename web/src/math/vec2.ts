@@ -18,7 +18,7 @@ import {
   add as fixedAdd,
   sub as fixedSub,
 } from './fixed';
-import { type Angle, wrapToPi } from './angle';
+import { ANGLE_PI, type Angle, wrapToPi } from './angle';
 
 export interface Vec2 {
   readonly x: Fixed;
@@ -97,7 +97,7 @@ function atan2Brad(y: number, x: number): number {
   }
   let z = 0;
   if (px < 0) {
-    z = py >= 0 ? 32768 : -32768;
+    z = py >= 0 ? ANGLE_PI : -ANGLE_PI;
     px = -px;
     py = -py;
   }

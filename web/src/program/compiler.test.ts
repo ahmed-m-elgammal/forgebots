@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BUILTINS,
   CYCLE_BUDGET,
   LOCALS_LIMIT,
   STACK_LIMIT,
@@ -112,14 +113,25 @@ describe('tokenize', () => {
   });
 
   it('[invalid] rejects float literals with a position (determinism, 10 § 2.2)', () => {
-    expect(() => tokenize('1.5')).toThrowError(/Float literals/);
+    // The position pins the dot itself — the offending character — not one
+    // column past it (T6: the lexer used to over-report by one).
+    expect(() => tokenize('1.5')).toThrowError(/^1:2: Float literals/);
+    expect(() => tokenize('  12.75')).toThrowError(/^1:5: Float literals/);
   });
 
   it('[invalid] rejects strings, stray characters and dotted garbage', () => {
     expect(() => tokenize('"no strings"')).toThrowError(/String literals/);
     expect(() => tokenize('a#b')).toThrowError(/Unexpected character '#'/);
     expect(() => tokenize('(. x)')).toThrowError(/only valid inside the reserved self/);
-    expect(() => tokenize('self.')).toThrowError(/only valid inside the reserved self/);
+    expect(() => tokenize('self.')).toThrowError(/^1:5: '\.' is only valid/);
+    expect(() => tokenize('a.b.c')).toThrowError(/^1:4: '\.' is only valid/);
+  });
+
+  it('[boundary] token text survives arbitrary length via slicing, not char loops', () => {
+    const longName = 'x'.repeat(5000);
+    const tokens = tokenize(`(${longName} 1)`);
+    expect(tokens[1]).toMatchObject({ kind: 'name', text: longName, line: 1, col: 2 });
+    expect(tokenize(longName)[0]).toMatchObject({ text: longName, col: 1 });
   });
 
   it('[invalid] rejects integer literals beyond the 32-bit range', () => {
@@ -316,7 +328,7 @@ describe('compile — boundary cases', () => {
 
   it('[boundary] a zero loop bound is legal and its body is still checked', () => {
     expect(compileOk(okSrc('(loop 0 (move 0 0))')).ok).toBe(true);
-    expect(codes(compileErr(okSrc('(loop 0 (nobody))')).errors)).toContain('E_SYM_UNKNOWN');
+    expect(codes(compileErr(okSrc('(loop 0 (nobody))')).errors)).toContain('E_SYM_NO_TARGET');
   });
 
   it('[boundary] variadic math folds; division requires at least two arguments', () => {
@@ -351,12 +363,24 @@ describe('compile — invalid input (verifier, 09 § 5)', () => {
   });
 
   it('[invalid] rule 6 + arity: unknown names are compile errors, not runtime traps', () => {
-    expect(codes(compileErr(okSrc('(nobody 1)')).errors)).toContain('E_SYM_UNKNOWN');
-    expect(codes(compileErr(okSrc('nothere')).errors)).toContain('E_SYM_UNKNOWN');
+    expect(codes(compileErr(okSrc('(nobody 1)')).errors)).toContain('E_SYM_NO_TARGET');
+    expect(codes(compileErr(okSrc('nothere')).errors)).toContain('E_SYM_UNRESOLVED');
     expect(codes(compileErr(okSrc('(move 1)')).errors)).toContain('E_ARITY');
     expect(codes(compileErr(okSrc('(dist 1 2 3)')).errors)).toContain('E_ARITY');
     expect(codes(compileErr(okSrc('(radar 1)')).errors)).toContain('E_ARITY');
     expect(codes(compileErr('(defn f [x] x)\n(defn step [] (call f))\n(every-tick step)').errors)).toContain('E_ARITY');
+  });
+
+  it('[invalid] inherited record keys never forge builtins or fields (T6)', () => {
+    // The verifier used to answer for 'toString' through Object.prototype:
+    // the arity/signature lookups fell through and the call walked on with
+    // garbage types instead of a clean unknown-name error.
+    expect(codes(compileErr(okSrc('(toString 1)')).errors)).toContain('E_SYM_NO_TARGET');
+    expect(codes(compileErr(okSrc('toString')).errors)).toContain('E_SYM_UNRESOLVED');
+    expect(codes(compileErr(okSrc('(valueOf)')).errors)).toContain('E_SYM_NO_TARGET');
+    expect(codes(compileErr(okSrc('(self.toString)')).errors)).toContain('E_SELF_FIELD');
+    expect(codes(compileErr(okSrc('(self.hasOwnProperty)')).errors)).toContain('E_SELF_FIELD');
+    expect(codes(compileErr(okSrc('(foo.toString 1)')).errors)).toContain('E_DOT_NAME');
   });
 
   it('[invalid] rule 8: entry point shape is enforced', () => {
@@ -459,7 +483,7 @@ describe('compile — invalid input (verifier, 09 § 5)', () => {
 
   it('[invalid] diagnostics carry line and column for the editor gutter', () => {
     const result = compileErr('(defn step []\n   (nobody))\n(every-tick step)');
-    expect(result.errors[0]).toMatchObject({ code: 'E_SYM_UNKNOWN', line: 2, col: 4 });
+    expect(result.errors[0]).toMatchObject({ code: 'E_SYM_NO_TARGET', line: 2, col: 4 });
   });
 });
 
@@ -561,9 +585,9 @@ describe('compile — determinism', () => {
       '(defn step []\n  (do\n    (ghost2)\n    (ghost1)\n    (ghost2)))\n(every-tick step)',
     );
     expect(result.errors.map((e) => `${e.line}:${e.col}:${e.code}`)).toEqual([
-      '3:5:E_SYM_UNKNOWN',
-      '4:5:E_SYM_UNKNOWN',
-      '5:5:E_SYM_UNKNOWN',
+      '3:5:E_SYM_NO_TARGET',
+      '4:5:E_SYM_NO_TARGET',
+      '5:5:E_SYM_NO_TARGET',
     ]);
   });
 
@@ -587,7 +611,7 @@ describe('compile — determinism', () => {
   });
 
   it('[determinism] missing params leave the template intact instead of crashing', () => {
-    expect(formatDiagnostic({ code: 'E_SYM_UNKNOWN', params: { name: 'ghost' } })).toContain(
+    expect(formatDiagnostic({ code: 'E_SYM_UNRESOLVED', params: { name: 'ghost' } })).toContain(
       "Unknown symbol 'ghost' —",
     );
   });
@@ -885,5 +909,61 @@ describe('verifier corner paths', () => {
       '(defn identity [p] p)\n(defn step [] (rng-int (call identity 5)))\n(every-tick step)',
     );
     expect(misused.errors.map((e) => e.code)).toContain('E_TYPE');
+  });
+});
+
+describe('builtin table — 09 § 4/§ 5 single owner', () => {
+  const names = Object.keys(BUILTINS);
+
+  it('[normal] every row is a well-formed cost/arity/signature triple', () => {
+    for (const name of names) {
+      const spec = BUILTINS[name as keyof typeof BUILTINS]!;
+      expect(spec.cost, name).toBeGreaterThanOrEqual(1);
+      expect(spec.arity[0], name).toBeGreaterThanOrEqual(0);
+      expect(
+        spec.arity[1] === -1 || spec.arity[1] >= spec.arity[0],
+        name,
+      ).toBe(true);
+      expect(['int', 'bool', 'option', 'void'], name).toContain(spec.arg);
+      expect(['int', 'bool', 'option', 'void'], name).toContain(spec.ret);
+    }
+  });
+
+  it('[normal] the 09 § 4 pinned costs are the table values', () => {
+    const pinned: Record<string, number> = {
+      '+': 1, '-': 1, not: 1, time: 1,
+      '*': 2, abs: 2, min: 2, max: 2, and: 2, or: 2,
+      '/': 3, mod: 3, 'some?': 3, 'hit-x': 3, 'hit-y': 3, 'food-x': 3, 'food-y': 3,
+      'rng-int': 4,
+      dist: 6, sin: 6, cos: 6, atan2: 6,
+      say: 10, food: 18, scan: 20, aim: 20,
+      radar: 25, ally: 25, enemy: 25, eat: 25,
+      move: 30, 'move-at': 30, fire: 40, build: 50,
+    };
+    for (const [name, cost] of Object.entries(pinned)) {
+      expect(BUILTINS[name as keyof typeof BUILTINS]?.cost, name).toBe(cost);
+    }
+  });
+
+  it('[boundary] the payload getters are exactly the arg-Option/ret-int rows', () => {
+    const derived = names.filter((name) => {
+      const spec = BUILTINS[name as keyof typeof BUILTINS]!;
+      return spec.arg === 'option' && spec.ret === 'int';
+    });
+    expect(derived.sort()).toEqual(['food-x', 'food-y', 'hit-x', 'hit-y']);
+  });
+
+  it('[invalid] every builtin name is reserved in value position (one owner, no drift)', () => {
+    for (const name of names) {
+      const result = compileErr(okSrc(name));
+      expect(result.errors.map((e) => e.code), name).toContain('E_SYM_BUILTIN_VALUE');
+    }
+  });
+
+  it('[repeat] the table itself is frozen between calls', () => {
+    const before = JSON.stringify(BUILTINS);
+    compileOk(okSrc('(move 65536 0)'));
+    compileErr(okSrc('(nobody)'));
+    expect(JSON.stringify(BUILTINS)).toBe(before);
   });
 });

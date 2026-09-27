@@ -2,7 +2,7 @@
 // server-side IR validation (09 § 1 goal 6) and Phase 3's VM all go through
 // this module, never through compiler.ts internals.
 export {
-  BUILTIN_COSTS,
+  BUILTINS,
   CYCLE_BUDGET,
   INT_LITERAL_LIMIT,
   LOCALS_LIMIT,
@@ -12,6 +12,7 @@ export {
   tokenize,
 } from './compiler';
 export type {
+  BuiltinSpec,
   ChassisContext,
   CompileOptions,
   CompileResult,
