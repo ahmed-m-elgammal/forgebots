@@ -1,17 +1,30 @@
+# ForgeBots — repo hygiene only.
+# Build/test tooling (tsconfig, eslint, vitest, package.json) is added in
+# Phase 01 of spec-kit/20-IMPLEMENTATION-PLAN.md — not before.
+
 # Editor / OS
 .DS_Store
 .vscode/
 .idea/
 *.swp
 *~
+Thumbs.db
 
-# Build artefacts (none yet, but reserve for future code)
+# Build artefacts
 node_modules/
 dist/
 build/
+coverage/
 *.log
-.env
-.env.local
 
-# OS scratch
-Thumbs.db
+# Environment / secrets — never commit (05-TECH-STACK.md § 8.4)
+.env
+.env.*
+!.env.example
+
+# Godot 4 client (created when the project file lands in Week 5)
+.godot/
+*.tmp
+
+# Generated artefacts (08-API-SURFACE.md § 11 — built from Zod schemas)
+server/openapi.yaml

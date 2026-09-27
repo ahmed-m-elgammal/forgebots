@@ -81,21 +81,35 @@ If you're a new contributor:
 ## Code that lives next to this spec kit
 
 > Implementation is **deferred**. The spec kit is the deliverable for
-> the planning phase. When implementation starts, the layout will be:
+> the planning phase. The directory skeleton below is now **in place**
+> as empty placeholders (per-module README stubs + `.gitkeep`, no code);
+> Phase 01+ of `20-IMPLEMENTATION-PLAN.md` fills it in:
 
 ```
 forgebots/
-├── simulator/                    ← Deterministic TS core
-├── server/                       ← Node.js + Fastify + Postgres
-├── client/                       ← Godot 4 project
+├── simulator/                    ← Deterministic TS core (scaffolded)
+│   ├── src/                      ← empty — Phases 02–14
+│   └── test/fixtures/            ← empty — Phase 14 golden matches
+├── server/                       ← Node.js + Fastify + Postgres (scaffolded)
+│   ├── migrations/               ← empty — forward-only SQL (07 § 5)
+│   └── src/                      ← empty — http/ db/ domain/ sim/ auth/ seasons/ notifications/
+├── client/                       ← Godot 4 project (scaffolded)
+│   ├── i18n/ · src/i18n/ · src/juice/  ← empty — doc 21 § 3, doc 16 § 5
+│   └── scenes/ ui/ net/ editor/ sim/ assets/  ← empty — 06 § 2
+├── web/                          ← Marketing site, optional (scaffolded)
 └── spec-kit/                     ← This folder
 ```
+
+Each module has a `README.md` stub mapping its planned files to the
+spec sections that define them.
 
 ## Status
 
 - Spec kit: **v0.5** (cross-document consistency pass: match-length
   arithmetic, bot-slot caps, ghost-bot sourcing, DSL builtin + part-ID
   alignment, EN+AR launch alignment, dangling section refs repaired).
+- Project skeleton: **scaffolded** — `simulator/`, `server/`, `client/`,
+  `web/` exist as empty placeholders (no implementation code).
 - Implementation: **not started** (deferred per planning phase).
 
 Last updated: 2026-09-27.

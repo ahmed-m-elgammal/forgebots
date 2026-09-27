@@ -1,8 +1,8 @@
 # 13 — UI / UX Wireframes
 
 > Wireframes are described textually here. A visual page mock lives at
-> `/workspace/forgebots/spec-kit/wireframes/` once we generate the
-> screenshots (HTML mockups).
+> `spec-kit/wireframes/` (reserved directory in this repo) once we
+> generate the screenshots (HTML mockups).
 >
 > **For onboarding flow (first 60 seconds, mission ladder, bounce-back),
 > see `17-ONBOARDING.md`.** This doc covers the steady-state screens

@@ -11,38 +11,47 @@ Schudy, GPL).
 
 ## What's in this repo
 
-Right now: **a spec kit only**. No implementation code yet.
+Right now: **the spec kit + an empty project skeleton**. No
+implementation code yet — `simulator/`, `server/`, `client/` and `web/`
+exist as documented placeholders (README stubs + `.gitkeep`), awaiting
+Phase 01 of [`spec-kit/20-IMPLEMENTATION-PLAN.md`](spec-kit/20-IMPLEMENTATION-PLAN.md).
 
 ```
-spec-kit/
-├── README.md                  ← reading order
-├── 00-OVERVIEW.md             ← one-paragraph pitch + MVP scope
-├── 01-RESEARCH.md             ← Grobots deep-dive + modern field
-├── 02-LICENSING.md            ← GPL clean-room rules
-├── 03-DIFFERENTIATION.md      ← vs Gladiabots / Screeps / Robocode
-├── 04-GAME-DESIGN.md          ← mechanics, hardware, arena, modes
-├── 05-TECH-STACK.md           ← Godot 4 + Node + Postgres
-├── 06-ARCHITECTURE.md         ← UI → Logic → Sim → Net → DB
-├── 07-DATA-MODEL.md           ← full Postgres schema
-├── 08-API-SURFACE.md          ← REST + WebSocket
-├── 09-AI-DSL.md               ← safe programming system
-├── 10-DETERMINISM.md          ← 60Hz fixed-tick + Q16.16 + RNG
-├── 11-REPLAY-FORMAT.md        ← event schema + streaming
-├── 12-MVP-ROADMAP.md          ← 8-week plan + cut list
-├── 13-UI-UX-WIREFRAMES.md     ← every screen
-├── 14-MONETIZATION.md         ← cosmetics, no pay-to-win
-├── 15-RISKS.md                ← RAG-rated
-├── 16-JUICE-AND-AUDIO.md      ← motion language, hit-stop, SFX + music
-├── 17-ONBOARDING.md           ← first-60-seconds, mission ladder
-├── 18-LIVE-OPS-AND-TELEMETRY.md ← seasons, KPIs, telemetry
-├── 19-STARTER-BOTS-AND-LIBRARY.md ← 8 starter bots + pattern library
-├── 20-IMPLEMENTATION-PLAN.md  ← 14-phase engine build plan
-├── 21-LOCALIZATION-AND-NOTIFICATIONS.md ← EN+AR pipeline, push strategy
-└── examples/
-    ├── sample-bot.fb          ← reference bot in the DSL
-    ├── drifter.fb             ← AI opponent template
-    ├── pouncer.fb             ← AI opponent template
-    └── breeder.fb             ← AI opponent template
+forgebots/
+├── simulator/                 ← Deterministic TS core (empty scaffold — see its README)
+├── server/                    ← Node.js + Fastify + Postgres (empty scaffold)
+├── client/                    ← Godot 4 project (empty scaffold)
+├── web/                       ← Marketing site, optional (empty scaffold)
+└── spec-kit/                  ← The full design spec (below)
+    ├── README.md              ← reading order
+    ├── 00-OVERVIEW.md         ← one-paragraph pitch + MVP scope
+    ├── 01-RESEARCH.md         ← Grobots deep-dive + modern field
+    ├── 02-LICENSING.md        ← GPL clean-room rules
+    ├── 03-DIFFERENTIATION.md  ← vs Gladiabots / Screeps / Robocode
+    ├── 04-GAME-DESIGN.md      ← mechanics, hardware, arena, modes
+    ├── 05-TECH-STACK.md       ← Godot 4 + Node + Postgres
+    ├── 06-ARCHITECTURE.md     ← UI → Logic → Sim → Net → DB
+    ├── 07-DATA-MODEL.md       ← full Postgres schema
+    ├── 08-API-SURFACE.md      ← REST + WebSocket
+    ├── 09-AI-DSL.md           ← safe programming system
+    ├── 10-DETERMINISM.md      ← 60Hz fixed-tick + Q16.16 + RNG
+    ├── 11-REPLAY-FORMAT.md    ← event schema + streaming
+    ├── 12-MVP-ROADMAP.md      ← 8-week plan + cut list
+    ├── 13-UI-UX-WIREFRAMES.md ← every screen
+    ├── 14-MONETIZATION.md     ← cosmetics, no pay-to-win
+    ├── 15-RISKS.md            ← RAG-rated
+    ├── 16-JUICE-AND-AUDIO.md  ← motion language, hit-stop, SFX + music
+    ├── 17-ONBOARDING.md       ← first-60-seconds, mission ladder
+    ├── 18-LIVE-OPS-AND-TELEMETRY.md ← seasons, KPIs, telemetry
+    ├── 19-STARTER-BOTS-AND-LIBRARY.md ← 8 starter bots + pattern library
+    ├── 20-IMPLEMENTATION-PLAN.md ← 14-phase engine build plan
+    ├── 21-LOCALIZATION-AND-NOTIFICATIONS.md ← EN+AR pipeline, push strategy
+    ├── wireframes/            ← HTML page mocks (reserved, see doc 13)
+    └── examples/
+        ├── sample-bot.fb      ← reference bot in the DSL
+        ├── drifter.fb         ← AI opponent template
+        ├── pouncer.fb         ← AI opponent template
+        └── breeder.fb         ← AI opponent template
 ```
 
 ## Quick pitch
@@ -78,5 +87,7 @@ proprietary; client may go MIT at v1.0.)
 ## Status
 
 - Spec kit: **complete (v0.5)** — cross-document consistency pass applied
+- Project skeleton: **scaffolded** — module directories exist as empty
+  placeholders; zero implementation code
 - Implementation: **not started**
 - Last updated: 2026-09-27
