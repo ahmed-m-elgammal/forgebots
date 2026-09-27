@@ -42,11 +42,34 @@ describe('spawnRobot (20 Phase 09 spawn state)', () => {
     const robot = spawn();
     expect(robot.hullHp).toBe(robot.stats.maxHullHp);
     expect(robot.shieldHp).toBe(robot.stats.maxShieldHp);
-    expect(robot.energy).toBe(500);
+    expect(robot.energyMilli).toBe(500000);
     expect(robot.biomassCarried).toBe(0);
     expect(robot.alive).toBe(true);
     expect(robot.velocity).toEqual({ x: 0, y: 0 });
     expect(robot.heading).toBe(0);
+  });
+
+  it('[state] combat and vitality runtime state starts neutral (tasks 3-4 contract)', () => {
+    const robot = spawn();
+    expect(robot.id).toBe('p1.scout.0');
+    expect(robot.weaponCooldowns).toEqual([0]);
+    expect(robot.energyRemainder).toBe(0);
+    expect(robot.shieldRegenRemainder).toBe(0);
+    expect(robot.shieldRegenSuppressTicks).toBe(0);
+  });
+
+  it('[state] one cooldown slot per fitted weapon, in design order', () => {
+    const gunner: Design = {
+      name: 'gunner',
+      chassis: { parts: [PART_ID.blaster, PART_ID.grenade, PART_ID.heavyBlaster] },
+    };
+    const robot = spawn({ design: gunner });
+    expect(robot.weaponCooldowns).toEqual([0, 0, 0]);
+    expect(robot.stats.weapons.map((weapon) => weapon.partId)).toEqual([
+      PART_ID.blaster,
+      PART_ID.grenade,
+      PART_ID.heavyBlaster,
+    ]);
   });
 
   it('[state] carries the identity that the replay and match loop use', () => {
@@ -139,6 +162,14 @@ describe('snapshotRobot (11 § 4 scalar state)', () => {
     expect(snapshot.biomass).toBe(7);
     expect(snapshot.alive).toBe(false);
     expect(robot.biomassCarried).toBe(7);
+  });
+
+  it('[boundary] energy floors to wire units: a partial milli remainder stays hidden', () => {
+    const robot = spawn();
+    robot.energyMilli = 499917;
+    expect(snapshotRobot(robot).energy).toBe(499);
+    robot.energyMilli = 0;
+    expect(snapshotRobot(robot).energy).toBe(0);
   });
 
   it('[repeat] repeated snapshots are byte-identical', () => {

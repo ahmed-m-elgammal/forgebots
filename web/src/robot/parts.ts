@@ -108,6 +108,18 @@ function assertBoolean(value: unknown, label: string): boolean {
   return value;
 }
 
+// Weapon numbers drive combat cadence: a zero cooldown fires every tick, a
+// zero damage hit is a phantom event, a zero range reaches nothing. All
+// three are catalog bugs, not balance choices, so the schema rejects them
+// at load (G4 — the guard is the boundary, not a runtime clamp).
+function assertPositive(value: unknown, label: string): number {
+  const int = assertInt(value, label);
+  if (int < 1) {
+    throw new TypeError(`catalog ${label} must be at least 1, got ${int}`);
+  }
+  return int;
+}
+
 function parseEffect(id: string, raw: Record<string, unknown>): PartEffect {
   const kind = raw['kind'];
   switch (kind) {
@@ -136,10 +148,10 @@ function parseEffect(id: string, raw: Record<string, unknown>): PartEffect {
       }
       return {
         kind,
-        damagePerHit: assertInt(raw['damagePerHit'], `${id} damagePerHit`),
-        cooldownTicks: assertInt(raw['cooldownTicks'], `${id} cooldownTicks`),
-        rangeMm: rangeMm === null ? null : assertInt(rangeMm, `${id} rangeMm`),
-        splashRadiusMm: splashRadiusMm === null ? null : assertInt(splashRadiusMm, `${id} splashRadiusMm`),
+        damagePerHit: assertPositive(raw['damagePerHit'], `${id} damagePerHit`),
+        cooldownTicks: assertPositive(raw['cooldownTicks'], `${id} cooldownTicks`),
+        rangeMm: rangeMm === null ? null : assertPositive(rangeMm, `${id} rangeMm`),
+        splashRadiusMm: splashRadiusMm === null ? null : assertPositive(splashRadiusMm, `${id} splashRadiusMm`),
       };
     }
     case 'shield':

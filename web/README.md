@@ -160,6 +160,69 @@ superseded Flutter marketing-site note lives in git history and in
     exact squared comparison, lowest index on ties.
 - `src/math/vec2.ts` — gains `distanceSquared` (exact bigint raw², the
   saturation-free primitive nearest-within-range queries compare on).
+- `src/combat/` — Phase 4 task 3 (23 § 7.3): hitscan, grenades,
+  shield-first damage, death, bounty — with the friendly fire decision
+  of 23 § 7.3 / legacy/02 § 6 req 10 adopted and implemented: **splash
+  on (side-blind, thrower included), aimed off (rays only ever see the
+  other side; allies neither block nor bleed)**. Needs ratifying in
+  `22-DECISIONS.md` (noted for the owner).
+  - `damage.ts` — `applyDamage` (shield first, overflow to hull, hull ≤ 0
+    is death, hull clamps at 0 while the event reports the full overflow,
+    D7), `killRobot` and the 04 § 6 bounty `min(10, victim carry)` clamped
+    to the killer's remaining capacity, paid only to a living killer other
+    than the victim; the victim's carry is lost with the corpse, never
+    spilled back into the field. Structural `Damageable` — robot/Robot
+    satisfies it without a cross-context import (06 § 5.2).
+  - `weapons.ts` — `tickWeaponCooldowns` (recovery floored at 0, ready
+    again exactly at cooldown ticks after firing: blaster 1 Hz, heavy
+    0.5 Hz, grenade 1/6 Hz), `resolveAttacks` (attackers in spawn order,
+    weapons in design order, a miss still consumes the cooldown), the
+    hitscan raycast comparing exact BigInt products against
+    range·65536 and radius·65536 (the perp 500 mm / proj 30 000 mm
+    boundaries are exact, T5), and `GrenadeVolley` — one-exact-division-
+    per-tick interpolation (no drift, landing exact on the last tick),
+    contact detonation within 500 mm of any living robot but the
+    thrower, inclusive 12 000 mm splash, fuse 60 ticks. Documented
+    decisions: throw range 24 000 mm = 2× splash (the thrower stands
+    clear of its own blast at full range, and any target that closes
+    inside the splash still punishes it); the 500 mm hit radius is
+    combat's own copy of D15's collision radius (the import rule forbids
+    combat → arena); a grenade outlives its thrower.
+  - `integration.test.ts` — the Phase 5 wiring contract proven now: 20
+    Phase 12.3's order (cooldowns → attacks → volley → vitality), a
+    shot's `to_shield > 0` triggering `noteShieldDamage`, and a robot
+    killed mid-tick stopping metabolising the same tick.
+- `src/vitality/` — Phase 4 task 4 (23 § 7.4): the energy pool, shield
+  regen, starvation.
+  - `energy.ts` — the D6 milliwatt accumulator exactly: each tick adds
+    net power (integer milliwatts) to a remainder, floor-divides by 60,
+    keeps the remainder in [0, 60) — a 5 W draw costs 83 milli-units on
+    tick 1 (the T6 regression against `floor(5/60) = 0`), a 10 W
+    reactor banks 167/166/167 with no drift, clamps at
+    [0, energyMax × 1000] clear the remainder (no banking overproduction
+    or unserviced demand), and the starvation chain runs D6's rules:
+    pool 0 → emergency conversion min(10, carry) biomass at the floored
+    2:1 ratio, still empty → death by `starvation` with the cause
+    literal this context owns. Structural `EnergizedRobot`.
+  - `shields.ts` — regen with the same carried-remainder technique on a
+    milli-HP bank (1 HP crystallises per 60 000 milli-HP-ticks: Light
+    1 HP/s, Heavy 0.5 HP/s never floors to 0, stacks average exactly),
+    the D7 suppression window (shield damage via `noteShieldDamage`
+    pauses regen for exactly 60 ticks; the countdown decrements on
+    suppressed ticks; the bank survives damage — production pauses,
+    storage does not) and no banking at a full pool. Structural
+    `ShieldedRobot`.
+- `src/robot/robot.ts` — extends with the runtime state combat/ and
+  vitality/ drive (the field names are the cross-context contract): the
+  stable replay `id`, per-fitted-weapon `weaponCooldowns`, the
+  `energyMilli` pool + `energyRemainder` accumulator (+ spawn-derived
+  `energyMaxMilli`), the shield regen bank and suppression counter, and
+  one cooldown slot per `stats.weapons` entry, all starting neutral at
+  spawn.
+- `src/robot/parts.ts` — hardens the catalog schema: weapon
+  `damagePerHit`, `cooldownTicks`, `rangeMm` and `splashRadiusMm` must
+  be ≥ 1 (a zero-cooldown weapon fires every tick and a zero-damage hit
+  is a phantom event — catalog bugs, rejected at load, G4).
 
 ## Commands
 

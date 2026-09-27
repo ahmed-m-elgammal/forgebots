@@ -141,6 +141,29 @@ describe('parseCatalog schema (20 T03.3)', () => {
       })),
     ).toThrow(/effect kind/);
   });
+
+  it('[invalid] weapon numbers must be at least 1: zero cooldown, damage, range and splash are catalog bugs', () => {
+    const breakBlaster = (mutate: (effect: Record<string, unknown>) => void): unknown =>
+      drifted((doc) => {
+        const blaster = (doc['parts'] as Record<string, unknown>[]).find((row) => row['id'] === 'blaster') as Record<string, unknown>;
+        const effect = { ...(blaster['effect'] as Record<string, unknown>) };
+        mutate(effect);
+        blaster['effect'] = effect;
+      });
+    expect(() => parseCatalog(breakBlaster((effect) => { effect['damagePerHit'] = 0; }))).toThrow(/damagePerHit/);
+    expect(() => parseCatalog(breakBlaster((effect) => { effect['damagePerHit'] = -12; }))).toThrow(/damagePerHit/);
+    expect(() => parseCatalog(breakBlaster((effect) => { effect['cooldownTicks'] = 0; }))).toThrow(/cooldownTicks/);
+    expect(() => parseCatalog(breakBlaster((effect) => { effect['rangeMm'] = 0; }))).toThrow(/rangeMm/);
+    const grenade = (doc: Record<string, unknown>) =>
+      (doc['parts'] as Record<string, unknown>[]).find((row) => row['id'] === 'grenade') as Record<string, unknown>;
+    expect(() =>
+      parseCatalog(drifted((doc) => {
+        const row = grenade(doc);
+        row['effect'] = { ...(row['effect'] as Record<string, unknown>), splashRadiusMm: 0 };
+      })),
+    ).toThrow(/splashRadiusMm/);
+    expect(() => parseCatalog(breakBlaster((effect) => { effect['rangeMm'] = 1; }))).not.toThrow();
+  });
 });
 
 describe('aggregate (D6 milliwatts, 04 § 3.1 formulas)', () => {
