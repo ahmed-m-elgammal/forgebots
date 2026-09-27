@@ -226,10 +226,23 @@ const COST_USER_CALL = 4;
 // 1000 — the "move 1 0" beginner bug. Throttle is Q16.16: 65536 = 100 %.
 const MOVE_TINY_THRESHOLD = 1000;
 
+// The structural half of the 09 § 4 cost table: the per-node costs the
+// static estimator charges here and the Phase 3 VM charges at runtime.
+// Builtin node costs live in BUILTINS below — one row per builtin.
+export const IR_COSTS = {
+  literal: COST_LITERAL,
+  varRead: COST_VAR_READ,
+  self: COST_SELF,
+  store: COST_STORE,
+  if: COST_IF,
+  loop: COST_LOOP,
+  userCall: COST_USER_CALL,
+} as const;
+
 // The DSL builtin vocabulary is typed exactly once (tier-2 domain strings,
 // rule 4); the cost/arity/signature table below is keyed through it, so a
 // name can never be present in one table and missing from another (G5).
-const BUILTIN_NAME = {
+export const BUILTIN_NAME = {
   add: '+',
   sub: '-',
   mul: '*',
@@ -332,7 +345,7 @@ const BUILTIN_NAMES: ReadonlySet<string> = new Set(Object.keys(BUILTINS));
 
 // Option payload getters (09 § 2.3) fall out of the table — arg Option,
 // return int — instead of a second hand-written list (G5).
-const PAYLOAD_GETTERS: ReadonlySet<string> = new Set(
+export const PAYLOAD_GETTERS: ReadonlySet<string> = new Set(
   Object.entries(BUILTINS)
     .filter(([, spec]) => spec.arg === 'option' && spec.ret === 'int')
     .map(([name]) => name),
@@ -340,7 +353,9 @@ const PAYLOAD_GETTERS: ReadonlySet<string> = new Set(
 
 // Own-property lookup: a plain record answers for 'toString' and friends
 // through Object.prototype, which would forge a builtin out of thin air.
-function builtinSpec(name: string): BuiltinSpec | undefined {
+// Phase 3's VM routes call nodes through this same accessor (G5: one copy
+// of the guard).
+export function builtinSpec(name: string): BuiltinSpec | undefined {
   if (!Object.prototype.hasOwnProperty.call(BUILTINS, name)) return undefined;
   return BUILTINS[name as BuiltinName];
 }
@@ -1573,7 +1588,10 @@ function walkInner(node: IrNode, scope: Scope, base: number, fn: FnCheck, frame:
         );
         type = then.type;
       }
-      const cost = COST_IF + max2(then.cost, elseResult?.cost ?? 0);
+      // The condition's nodes execute exactly once at runtime, so the
+      // estimate bills them too — a worst-case estimate may not under-count
+      // (D4), the same rule that makes while multiply cond by maxIters.
+      const cost = cond.cost + COST_IF + max2(then.cost, elseResult?.cost ?? 0);
       const depth = max2(cond.depth, max2(then.depth, elseResult?.depth ?? base + 1));
       return { type, cost, depth };
     }

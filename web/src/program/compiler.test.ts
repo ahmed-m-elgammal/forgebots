@@ -706,7 +706,9 @@ describe('static cycle estimator — pinned against 09 § 4', () => {
     ['(not true)', 4 + 1 + 1],
     ['(and true false)', 4 + 2 + 2],
     ['(or true false)', 4 + 2 + 2],
-    ['(if true 1 2)', 4 + 2 + 1],
+    // The if bills its condition's nodes too (D4: no under-count) — the
+    // runtime evaluates every cond exactly once.
+    ['(if true 1 2)', 4 + 1 + 2 + 1],
     ['(do (time) (time))', 4 + 1 + 1],
     ['(let [x 5] x)', 4 + 1 + 2 + 1],
     ['(self.x)', 4 + 3],
@@ -733,7 +735,7 @@ describe('static cycle estimator — pinned against 09 § 4', () => {
 
   it('[normal] the estimator takes the worst branch of an if, not the sum', () => {
     const result = compileOk(okSrc('(if true (move 0 0) (eat))'));
-    expect(result.cycleEstimate).toBe(4 + 2 + 32);
+    expect(result.cycleEstimate).toBe(4 + 1 + 2 + 32);
   });
 });
 
