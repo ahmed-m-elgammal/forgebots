@@ -5,7 +5,7 @@
 ;; Falls back to a slow forward walk.
 ;; See: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.4
 ;;
-;; Hardware: mk2_engine, radar_long, blaster, solar
+;; Hardware: mk2_engine, long_radar, blaster, solar
 
 (defn step []
   (let ((e (radar)))

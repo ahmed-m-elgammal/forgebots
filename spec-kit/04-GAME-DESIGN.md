@@ -22,7 +22,8 @@ microtransactions, just better engineering.
                      └────────────┘
 ```
 
-Average match length in MVP: **90 seconds** (1500 ticks @ 60 Hz).
+Average match length in MVP: **25 seconds** (1500 ticks @ 60 Hz;
+spectators usually watch replays at 2×–4×).
 Average iteration cycle: **2–5 minutes**.
 
 ## 3. Hardware catalog (MVP)
@@ -67,8 +68,7 @@ All hardware has **mass** (kg) and **energy cost per second** (W).
 
 ### 4.1 Sensors (read)
 
-- `self.position` → `(x, y)` in metres, fixed-point (mm precision)
-- `self.velocity` → `(vx, vy)`
+- `self.x`, `self.y` → position in metres, fixed-point (mm precision)
 - `self.energy` → `int` (0–1000)
 - `self.hp` → `int`
 - `self.biomass` → `int` (carried)
@@ -79,9 +79,14 @@ All hardware has **mass** (kg) and **energy cost per second** (W).
 - `ally()` / `enemy()` → `Option<EntityHit>`
 - `time()` → `int` (match tick)
 
+(Velocity is **not** exposed to the DSL in MVP — bots know their own
+move intents; see `09-AI-DSL.md` § 2.2 for the canonical self-state
+surface.)
+
 ### 4.2 Actuators (write)
 
-- `move(direction, speed)` — set desired velocity
+- `move(vx, vy)` — set desired velocity (per-axis, matches the DSL's
+  `move vx vy`)
 - `aim(angle)` — rotate chassis to angle (radians)
 - `fire()` — fire currently-aimed weapon (subject to cooldown)
 - `eat()` — convert carried biomass to energy (10 biomass → 5 energy)
@@ -110,6 +115,9 @@ cycles / tick / bot**. Going over ends the tick early for that bot.
 - **Mode:** 1v1 side vs side (1..3 robot types per side, 1..4 robots per
   type, total ≤ 6 robots per side).
 - **Win:** last side with at least 1 alive robot.
+- **Kill bounty:** destroying an enemy robot transfers 10 of its
+  carried biomass to the killer (feeds swarm strategies; implemented
+  in `20-IMPLEMENTATION-PLAN.md` § 13.3).
 - **Draw:** both sides extinct at same tick (rare — biomass starvation).
 - **Time limit:** 1500 ticks. If both alive, side with more biomass wins.
 
@@ -127,7 +135,8 @@ binary. They form the campaign ladder.
 ## 8. Progression (MVP)
 
 - **Elo rank** per bot (per-player, per-bot).
-- **Bot slots** — 3 free, up to 12 with IAP.
+- **Bot slots** — 3 free, up to 30 with IAP (Forge Pass → 12, slot
+  packs → 30; see `14-MONETIZATION.md` § 2).
 - **Cosmetics:** chassis skins, victory animations, arena themes.
 - **Achievements:** "First win", "Win without weapons", etc.
 

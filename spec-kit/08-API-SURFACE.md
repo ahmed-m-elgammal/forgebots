@@ -143,7 +143,9 @@ Toggles `is_public`. Visible on the public ladder.
 ```
 
 The server matches on Elo ± 100 with a quick scan. If no human is
-available, it falls back to a "ghost" bot from the community archive.
+available, it falls back to a "ghost" bot — a starter bot seeded at a
+similar Elo (see `19-STARTER-BOTS-AND-LIBRARY.md` § 5; ghosts live in
+the `bots` table under a reserved system user, see `07-DATA-MODEL.md` § 2.4).
 
 ### `GET /matches?status=done&limit=20`
 

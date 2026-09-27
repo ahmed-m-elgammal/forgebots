@@ -151,14 +151,16 @@ licensed under CC0/CC-BY; see `02-LICENSING.md`.
 
 ### 3.4 First-launch audio budget
 
+Counts match the § 3.1 catalog exactly.
+
 | Category | Count |
 |---|---|
-| UI SFX | 12 |
-| Combat SFX | 8 |
-| World SFX | 4 |
+| UI SFX | 8 |
+| Combat SFX | 7 |
+| World SFX | 3 |
 | Replay SFX | 3 |
 | Arena themes (music) | 2 in MVP |
-| **Total files** | **29** |
+| **Total files** | **23** |
 | **Total size** | **~3 MB (OGG, q5)** |
 
 ### 3.5 Localization & accessibility

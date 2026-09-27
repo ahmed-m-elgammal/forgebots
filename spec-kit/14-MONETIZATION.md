@@ -34,19 +34,22 @@
 
 ### 2.4 Slot packs (per pack, $1.99)
 
-- +3 bot slots, up to a hard cap of 30.
+- +3 bot slots, up to a hard cap of 30 (supersedes the "up to 12"
+  mentioned in early drafts of `04-GAME-DESIGN.md` § 8 — Forge Pass
+  takes you to 12; slot packs extend to 30).
 
 ## 3. Revenue projections (order-of-magnitude)
 
 Assumptions:
 - 100k downloads in year 1.
-- 10% conversion to Forge Pass.
+- 8% conversion to Forge Pass (matches the KPI target in
+  `18-LIVE-OPS-AND-TELEMETRY.md` § 3.3).
 - $2 average ARPU on cosmetics (year 1).
 
 ```
-Forge Pass: 10,000 × $4.99 = $49,900
+Forge Pass: 8,000 × $4.99 = $39,920
 Cosmetics:  20,000 × $2.00 = $40,000
-Total MVP year-1: ~$90k
+Total MVP year-1: ~$80k
 ```
 
 This is enough to fund a small team but not life-changing. The plan is

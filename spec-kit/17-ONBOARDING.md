@@ -45,10 +45,10 @@ made something" → "I'm going to do this again tomorrow".
      (every-tick (move 1 0))
      "Your bot already has a brain — let's watch it run."
 32s  Big button: "Run preview"
-34s  Preview runs: 10-second clip of bot running against Drifter.
+34s  Preview runs: 5-second clip of bot running against Drifter.
      Inline timer, replay controls disabled.
      (SFX: blaster fire + footsteps. NO music yet.)
-44s  Preview ends. Result: "Your bot survived — but it didn't collect
+39s  Preview ends. Result: "Your bot survived — but it didn't collect
      any food. Let's teach it to gather."
      CTA: "Open editor"
 50s  Editor pre-fills:
@@ -201,4 +201,5 @@ Players learn by seeing what their bot did vs what it could have done.
 - Should the first PvP match be forced against a Drifter ghost, or
   straight into the ladder? (Lean: ladder, but with a wider Elo range
   for the first 5 matches so new players find peers.)
-- Should we ship voice-over in MVP? (Lean: no, see § 3.5.)
+- Should we ship voice-over in MVP? (Lean: no, see
+  `16-JUICE-AND-AUDIO.md` § 3.5.)

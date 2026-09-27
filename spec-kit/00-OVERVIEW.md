@@ -27,7 +27,9 @@ ordered *bottom-up*, from infrastructure to UX:
 ```
 
 Plus the up-front research and licensing notes (01, 02, 03, 04) that justify
-*why* we make the choices below.
+*why* we make the choices below. Docs 16–21 (game feel, starter bots,
+execution plan, localization) extend this core — see `README.md` for the
+full map.
 
 ## 2. The pitch (one paragraph)
 
@@ -61,7 +63,7 @@ fresh visuals.
 | Constraint | Why |
 |---|---|
 | No GPL code is reused or linked | Keep proprietary rights clean |
-| No raw user code execution on server | Safety, determinism, antitrust |
+| No raw user code execution on server | Safety, determinism, anti-cheat |
 | Server is authoritative for every match | Anti-cheat, replay fidelity |
 | 60 Hz fixed-tick simulation | Replays must match exactly |
 | Cross-platform: Android, iOS, Windows, macOS, Linux | One team, one codebase |
@@ -82,7 +84,8 @@ fresh visuals.
 ## 6. Out of scope for MVP
 
 - Real-time multiplayer (live spectator mode)
-- Tournament hosting UI (only data model is in scope)
+- Tournament hosting UI (post-MVP — see `18-LIVE-OPS-AND-TELEMETRY.md` § 6;
+  no tournament data model is in scope)
 - Clans / friends list
 - In-app purchases (placeholder store UI only)
 - Web build (deferred to v0.3)

@@ -35,7 +35,7 @@ forgebots/
 │   └── src/
 │       ├── rng.ts                ← Seeded RNG (mulberry32 + xoshiro256**)
 │       ├── fixed.ts              ← Fixed-point math helpers
-│       ├── math.ts               ← Vector ops
+│       ├── math.ts               ← Vector + angle ops (vec.ts / angle.ts in Phase 02 of 20)
 │       ├── arena.ts              ← Map, walls, resources
 │       ├── parts.ts              ← Hardware catalog
 │       ├── bot.ts                ← Bot state + per-bot cycle VM
@@ -96,7 +96,8 @@ forgebots/
    ├─────────────────────────►                          │                   │
    │                          │ 1. Validate bot         │                   │
    │                          │ 2. Find opponent        │                   │
-   │                          │    (Elo ±100, online)   │                   │
+   │                          │    (Elo ±100; ghost-    │                   │
+   │                          │    bot fallback)        │                   │
    │                          │ 3. Insert match row     │                   │
    │                          ├───────────────────────────────────────────► │
    │                          │                          │                   │
@@ -140,7 +141,9 @@ forgebots/
 ### 4.2 In the server
 
 - **API is stateless.** All state in Postgres or Redis.
-- **Sim jobs run in worker pool** (Node.js cluster or BullMQ).
+- **Sim jobs run in worker pool** (Node.js cluster in MVP; add pg-boss
+  or BullMQ only once Redis is introduced — see `05-TECH-STACK.md`
+  § 3.4).
 - **Match queue** is a Postgres table with `FOR UPDATE SKIP LOCKED`
   for atomic claiming. No external broker needed for MVP.
 

@@ -43,9 +43,9 @@
 | Risk | Mitigation |
 |---|---|
 | Game is "too hard" — onboarding churn | Three scripted AI opponents; tutorial missions; tooltips everywhere |
-| Game is "too slow" — boring matches | 90 s median match length is the target; tune via faster constructors |
+| Game is "too slow" — boring matches | 25 s median match length is the target (1500 ticks @ 60 Hz); tune via faster constructors |
 | Visual block editor is intimidating | Text fallback; sensible default bot scaffold; "Start from example" button |
-| Async matchmaking empty at launch | Seed with 10 ghost bots in week 4 |
+| Async matchmaking empty at launch | Seed matchmaking with the 8 starter bots as ghost opponents in week 4 |
 
 ## 5. Technical debt watchlist
 
@@ -96,16 +96,16 @@ kill you on day 1 — they kill you on day 30.
 | **Onboarding is too slow / unclear** | High | Critical | 60-second beat sheet (`17-ONBOARDING.md` § 2); pre-filled starter bot; bounce-back after 2 losses; measure funnel weekly |
 | **First PvP loss feels unfair** | High | High | Mechanical advice card on loss, generated from event log; see `17-ONBOARDING.md` § 4.2 |
 | **Match feels sterile without juice** | Medium | High | Dedicated juice/audio brief (`16-JUICE-AND-AUDIO.md`); hit-stop, camera shake, particles per event; music adaptive |
-| **Game feels too slow (boring matches)** | Medium | High | 90 s median match; tunable via balance.json; tracked via match length distribution |
+| **Game feels too slow (boring matches)** | Medium | High | 25 s median match (1500 ticks @ 60 Hz); tunable via balance.json; tracked via match length distribution |
 | **Game feels too hard (churn)** | Medium | Critical | 3 mission ladder with bounce-back; ghost bots in matchmaking for new players; Elo ±200 in first 5 matches |
 | **Visual editor (Blockly) too cramped on phone** | High | High | Mobile-first sizing; fall back to text-only editor; consider an "edit on web, sync to mobile" path post-MVP |
 | **Players feel "I have no chance" against top bots** | Medium | High | Elo matchmaking + decay; seasonal soft-reset; casual vs ranked modes (post-MVP) |
 | **Replay viewer too complex** | Low | Medium | Default speed 1×, simple timeline; advanced stats overlay off by default; iteration of UX post-launch |
 | **No content after first 10 matches** | High | High | 3 AI opponents shipped MVP; ladder provides infinite social content; seasonal arena + AI per 12 weeks |
 | **Audio is annoying / overpowering** | Low | Medium | Ducking, mute, SFX-only mode; user testing on first 50 players |
-| **Localization missing at launch** | Medium | Medium | EN-only MVP is fine; extraction strategy baked in from day 1; add locales post-MVP |
+| **Localization missing at launch** | Medium | Medium | EN+AR ships at MVP via the `21-LOCALIZATION-AND-NOTIFICATIONS.md` pipeline (extraction from day 1); further locales post-MVP |
 | **Accessibility gaps block a player segment** | Medium | Medium | WCAG AA + reduce motion + tap targets ≥ 44 pt; colorblind mode; see `13-UI-UX-WIREFRAMES.md` § 11 |
-| **Push notifications become spam** | Medium | Medium | ≤ 1 push/week; quiet hours respected; opt-in only; frequency cap |
+| **Push notifications become spam** | Medium | Medium | Frequency caps + quiet hours + opt-in only (`21-LOCALIZATION-AND-NOTIFICATIONS.md` § 2.4: ≤ 3 pushes/week across channels, `match_ready` exempt) |
 
 ### 9.1 The "fun ceiling" problem
 
@@ -139,7 +139,8 @@ These need a real call from the founder, not a spec:
   call; affects monetization ramp.
 - **Marketing budget.** Can we afford $5k of TikTok spend in launch
   week? If not, organic-only (slower ramp).
-- **Localization day-1.** Are we comfortable shipping EN-only for 6
-  months? (Yes — see `14-MONETIZATION.md`.)
+- **Localization day-1.** RESOLVED: EN+AR ships at MVP (see
+  `21-LOCALIZATION-AND-NOTIFICATIONS.md` § 1.1); further locales
+  post-MVP.
 
 Document the call, ship the MVP, revisit.

@@ -33,7 +33,8 @@
 
 - All positions, velocities, angles, masses are stored as **int** with a
   fixed-point scale. Q16.16 is the default for world units (mm
-  precision); angles use Q15 (so 2π = 65535).
+  precision); angles use a 16-bit circular unit where **2π = 65536**
+  (so π = 32768 — matching `20-IMPLEMENTATION-PLAN.md` § 4.3).
 - Trigonometry (`sin`, `cos`, `atan2`) is implemented with a **fixed
   lookup table** (4096 entries per quadrant) — no IEEE rounding surprises
   between platforms.
@@ -97,8 +98,10 @@ output_sha256 = sha256(
 )
 ```
 
-Stored in `replays.output_sha256`. CI runs a golden match (Drifter vs
-Drifter, fixed seed) every commit and asserts the hash matches.
+Stored in `replays.output_sha256`. CI runs the golden matches
+(**Pebble vs Drifter**, **Drifter vs Breeder**, **Swarm-Mind vs
+Reaper** — fixed seeds, defined in `19-STARTER-BOTS-AND-LIBRARY.md` § 5)
+every commit and asserts the hashes match.
 
 ## 6. Cross-platform proof
 

@@ -37,7 +37,7 @@ The 3 tutor bots are also the 3 onboarding missions (see `17-ONBOARDING.md`
 **Strategy:** stand still. The most boring possible bot. Used as the
 "empty / did-nothing" baseline in tutorials.
 
-**Hardware:** `mk1_engine, radar_short, solar`
+**Hardware:** `mk1_engine, short_radar, solar`
 
 **DSL source:**
 
@@ -87,7 +87,7 @@ Loses to every tutor bot.
 Falls back to a random heading every ~30 ticks if nothing is in range.
 Does not fight.
 
-**Hardware:** `mk1_engine, radar_long, solar`
+**Hardware:** `mk1_engine, long_radar, solar`
 
 **DSL source:**
 
@@ -111,7 +111,7 @@ Does not fight.
 **Test:**
 - Wins against Pebble ~99% (just by collecting food).
 - Wins against Glow ~80% (Glow eventually walks off food).
-- Loses to Pouncer ~30%, Breeder ~25%.
+- Loses to Pouncer ~65%, Breeder ~75%.
 - Never engages combat; can be ignored if you run from it.
 
 **Teaches:** `food`, `self.x`, `self.y`, simple vector math.
@@ -123,7 +123,7 @@ Does not fight.
 **Strategy:** scans for the nearest enemy, aims, fires when in range.
 Falls back to slow random walk. Does not collect biomass efficiently.
 
-**Hardware:** `mk2_engine, radar_long, blaster, solar`
+**Hardware:** `mk2_engine, long_radar, blaster, solar`
 
 **DSL source:**
 
@@ -158,7 +158,7 @@ Falls back to slow random walk. Does not collect biomass efficiently.
 **Strategy:** collects biomass and converts it into child bots via
 the Constructor. Keeps producing children until it runs out of biomass.
 
-**Hardware:** `mk1_engine, radar_short, constructor, solar, storage`
+**Hardware:** `mk1_engine, short_radar, constructor, solar, storage`
 
 **DSL source:**
 
@@ -189,7 +189,7 @@ the Constructor. Keeps producing children until it runs out of biomass.
 **Strategy:** aggressive hunter. Picks the weakest enemy, closes in,
 fires until dead. Retreats to safety when energy < 200.
 
-**Hardware:** `mk2_engine, radar_long, blaster, blaster, shield_l, solar`
+**Hardware:** `mk2_engine, long_radar, blaster, blaster, light_shield, solar`
 
 **DSL source:**
 
@@ -229,7 +229,7 @@ fires until dead. Retreats to safety when energy < 200.
 targeted roles: a constructor plus an escort plus a defender. Each
 child is a separate bot type; the parent only handles spawning logic.
 
-**Hardware:** `mk1_engine, radar_short, constructor, storage, solar`
+**Hardware:** `mk1_engine, short_radar, constructor, storage, solar`
 
 **DSL source:**
 
@@ -269,7 +269,7 @@ child is a separate bot type; the parent only handles spawning logic.
 **Strategy:** claims the centre of the map, builds a small perimeter
 of constructors and turrets, defends. Wins by attrition.
 
-**Hardware:** `mk1_engine, radar_long, blaster, shield_h, solar, storage`
+**Hardware:** `mk1_engine, long_radar, blaster, heavy_shield, solar, storage`
 
 **DSL source:**
 

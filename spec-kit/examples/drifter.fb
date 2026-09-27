@@ -5,7 +5,7 @@
 ;; See: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.3
 ;;
 ;; Hardware (in the chassis.json next to this bot):
-;;   mk1_engine, radar_long, solar
+;;   mk1_engine, long_radar, solar
 
 (defn pick-heading []
   (let ((h (* 60 (time))))

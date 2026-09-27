@@ -4,7 +4,7 @@
 ;; Collects biomass and converts it into child bots via the Constructor.
 ;; See: spec-kit/19-STARTER-BOTS-AND-LIBRARY.md § 2.5
 ;;
-;; Hardware: mk1_engine, radar_short, constructor, solar, storage
+;; Hardware: mk1_engine, short_radar, constructor, solar, storage
 
 (defn step []
   (let ((f (food)))

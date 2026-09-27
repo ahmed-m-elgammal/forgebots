@@ -64,12 +64,12 @@ Godot natively consumes.
 Every user-facing string lives in `client/i18n/en.arb` and is fetched
 via a typed wrapper:
 
-```typescript
-// client/i18n/t.ts
-export const t = (key: string, vars?: Record<string, string|number>): string => {
-  // delegates to Godot TranslationServer at runtime
-  return TranslationServer.translate(key, vars);
-};
+```gdscript
+# client/src/i18n/i18n.gd — GDScript wrapper; an equivalent C# wrapper
+# exists for C#-side UI code.
+func t(key: String, vars: Dictionary = {}) -> String:
+    # delegates to Godot TranslationServer at runtime
+    return TranslationServer.translate(key, vars).format(vars)
 ```
 
 **Disallowed:**
@@ -324,6 +324,7 @@ each channel independently.
 | **`season_event`** | ON | "Season 2 launches in 24h — your bot is ready" | 1/week |
 | **`patch_notes`** | ON | "Patch 0.2.3 is live — see what's new" | 1/week |
 | **`tournament`** | ON | "Weekly tournament starts in 1h" | 1/week |
+| **`reengagement`** | ON | "Your bot hasn't fought in a while — top of ladder misses you" | 1/60 days (see § 2.6) |
 | **`friend_activity`** | OFF | "Alice improved her bot — challenge her?" | 2/week |
 | **`marketing`** | OFF | "Forge Pass 50% off this weekend" | 1/month |
 
@@ -496,8 +497,8 @@ client/
 │           └── ar.po
 └── src/
     └── i18n/
-        ├── t.ts            ← typed wrapper around TranslationServer
-        └── locale.ts       ← detection + fallback logic
+        ├── i18n.gd         ← t() wrapper around TranslationServer (GDScript)
+        └── locale.gd       ← detection + fallback logic
 
 server/
 └── src/
@@ -521,7 +522,8 @@ This doc references only:
 
 It adds:
 - One folder tree (`client/i18n/`, `server/src/notifications/`).
-- Two new tables in `07-DATA-MODEL.md` schema (additive; no breaking change).
+- Three new tables in `07-DATA-MODEL.md` schema (`push_tokens`,
+  `notification_prefs`, `notifications`; additive, no breaking change).
 - CI lint rules (additive to existing 01-Foundation plan).
 
 No conflict with docs 00–20.

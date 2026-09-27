@@ -128,7 +128,9 @@ limit response size. The viewer then re-requests with the new `since`.
 ## 8. Export / share
 
 A user can:
-- Copy a share link (server stores the replay for 30 days, public-read).
+- Copy a share link (the link is public-read for **30 days**; the
+  replay itself follows the standard 90-day retention policy in
+  `07-DATA-MODEL.md` § 6, with bookmarked replays exempt).
 - Download a `.fb-replay` JSON file (gzipped) for offline analysis.
 
 ## 9. Versioning

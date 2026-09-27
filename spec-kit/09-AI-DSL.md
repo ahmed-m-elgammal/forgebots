@@ -16,12 +16,13 @@
 ```
 ;; comments start with semicolon
 
-(defn scout [tick]
+(defn scout []
   (let [target (radar)]
     (if target
-        (do (aim (target-angle target))
+        (do (aim (atan2 (- (hit-y target) (self.y))
+                        (- (hit-x target) (self.x))))
             (fire))
-        (move 0.5))))
+        (move 1 0))))
 
 (every-tick scout)
 ```
@@ -37,17 +38,28 @@ pick it up in a weekend. Grobots' Forth was delightful but niche.
 | `(let [name expr]* body)` | Bind locals |
 | `(if cond then else?)` | Branch |
 | `(do expr*)` | Sequence |
-| `(while cond body)` | Loop with cycle budget |
+| `(while cond body)` | Loop with cycle budget (verifier requires a declared max-iteration count — see § 5) |
 | `(loop n body)` | Bounded loop |
 | `(defn name [args] body)` | Define function |
 | `(call fn args*)` | Call user fn |
+| `(every-tick fn)` | Program entry point; calls `fn` once per tick |
 | `cond`, `when`, `not`, `and`, `or` | Booleans |
 | `+`, `-`, `*`, `/`, `mod`, `abs`, `min`, `max` | Math |
 | `<`, `<=`, `>`, `>=`, `==`, `!=` | Compare |
 | `radar`, `scan angle`, `food`, `ally`, `enemy` | Sensors |
-| `self.x`, `self.y`, `self.hp`, `self.energy`, `self.biomass` | Self state |
+| `self.x`, `self.y`, `self.hp`, `self.energy`, `self.biomass`, `self.alive` | Self state |
 | `move vx vy`, `aim angle`, `fire`, `eat`, `build type`, `say ch v` | Actuators |
 | `time`, `tick`, `rng-int n` | Time & RNG |
+| `some? opt` | True if an Option sensor result is present |
+| `dist x1 y1 x2 y2` | Fixed-point distance between two points |
+| `food-x f`, `food-y f` | Coordinates of a `food` result |
+| `hit-x h`, `hit-y h` | Coordinates of a `radar`/`scan`/`ally`/`enemy` hit |
+| `sin a`, `cos a`, `atan2 dy dx` | Fixed-point trig (lookup tables — see `10-DETERMINISM.md` § 2.2) |
+
+> **Parser note:** brackets and parentheses are interchangeable, so
+> `let` accepts both `(let [x 5] body)` and the wrapping-paren style
+> `(let ((x 5)) body)` used by the starter bots (`19-STARTER-BOTS-AND-LIBRARY.md`
+> § 2).
 
 ### 2.3 Examples
 
@@ -56,7 +68,8 @@ pick it up in a weekend. Grobots' Forth was delightful but niche.
 (defn step []
   (let [f (food)]
     (if f
-        (move (to-self f))
+        (move (/ (- (food-x f) (self.x)) 60)
+              (/ (- (food-y f) (self.y)) 60))
         (move 0 0)))
 (every-tick step)
 ```
@@ -66,8 +79,10 @@ pick it up in a weekend. Grobots' Forth was delightful but niche.
 (defn step []
   (let [e (enemy)]
     (if e
-        (do (aim (to-self e))
-            (if (< (dist e) 30) (fire)))
+        (do (aim (atan2 (- (hit-y e) (self.y))
+                        (- (hit-x e) (self.x))))
+            (if (< (dist (self.x) (self.y) (hit-x e) (hit-y e)) 30000)
+                (fire)))
         (move 1 0)))
 (every-tick step)
 ```
@@ -77,8 +92,10 @@ pick it up in a weekend. Grobots' Forth was delightful but niche.
 (defn step []
   (let [f (food)]
     (if f
-        (move (to-self f))
-        (do (eat) (build 1))))
+        (move (/ (- (food-x f) (self.x)) 60)
+              (/ (- (food-y f) (self.y)) 60))
+        (do (eat)
+            (if (>= (self.biomass) 5) (build 0)))))
 (every-tick step)
 ```
 
@@ -190,9 +207,11 @@ The "Text" tab shows the DSL source live.
 
 - **Per bot per tick:** ≤ 1000 cycles.
 - **Per bot cycle cost:** ≈ 1 µs in our VM.
-- **Worst case:** 6 bots × 1000 cycles × 1500 ticks = 9 M cycles total.
-- At 1 µs each, that's **9 seconds per match** on a single core — well
-  within our SLA.
+- **Worst case:** 12 bots (6 per side — see `04-GAME-DESIGN.md` § 6)
+  × 1000 cycles × 1500 ticks = 18 M cycles total.
+- At ~1 µs each, that's **~18 s per match** on a single core — within
+  our 30 s match SLA (`12-MVP-ROADMAP.md` § 4), though worst-case
+  matches will cross the >5 s autoscale threshold in `05-TECH-STACK.md` § 5.
 
 ## 10. The "rejected bot" UX
 

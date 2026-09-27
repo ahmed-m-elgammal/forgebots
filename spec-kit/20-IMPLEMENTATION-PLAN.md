@@ -94,11 +94,11 @@ context-switching overhead, expect ~3 weeks wall-clock.
 | 04 DSL Front | `09-AI-DSL.md` § 2 | 01 |
 | 05 IR & Verify | `09-AI-DSL.md` § 3–5 | 01, 04 |
 | 06 VM | `09-AI-DSL.md` § 6, `10-DETERMINISM.md` § 2 | 02, 05 |
-| 07 Sensors | `09-AI-DSL.md` § 4.1, `10-DETERMINISM.md` § 2 | 06, 09 (read-only) |
-| 08 Actuators | `09-AI-DSL.md` § 4.2, `04-GAME-DESIGN.md` § 3 | 06 |
-| 09 Bot State | `04-GAME-DESIGN.md` § 3.3 | 02, 03, 06 |
+| 07 Sensors | `09-AI-DSL.md` § 2.2 (sensors), `10-DETERMINISM.md` § 2 | 06, 09 (read-only) |
+| 08 Actuators | `09-AI-DSL.md` § 2.2 (actuators), `04-GAME-DESIGN.md` § 3 | 06 |
+| 09 Bot State | `04-GAME-DESIGN.md` § 3.1 | 02, 03, 06 |
 | 10 Match Driver | `04-GAME-DESIGN.md` § 6, `11-REPLAY-FORMAT.md` | 07, 08, 09 |
-| 11 Combat | `04-GAME-DESIGN.md` § 4 (weapons) | 10 |
+| 11 Combat | `04-GAME-DESIGN.md` § 3.2 (weapons) | 10 |
 | 12 Arena | `04-GAME-DESIGN.md` § 5 | 10 |
 | 13 Energy | `04-GAME-DESIGN.md` § 3.2 | 10 |
 | 14 Replay | `11-REPLAY-FORMAT.md` | 10, 11, 12, 13 |
@@ -189,7 +189,7 @@ RNG, fixed-point arithmetic, vector/angle helpers — all deterministic,
 all unit-tested.
 
 ### 4.2 Tasks
-- **T02.1** — `rng.ts`: Mulberry32 + xoshiro128** + `deriveSeed`.
+- **T02.1** — `rng.ts`: Mulberry32 + xoshiro256** + `deriveSeed`.
 - **T02.2** — `fixed.ts`: Q16.16 helpers + trig lookup table.
 - **T02.3** — `vec.ts`: 2D vector ops (add, sub, scale, dot, len, len², normalise).
 - **T02.4** — `angle.ts`: fixed-point angle helpers (wrap, lerp, diff).
@@ -201,8 +201,10 @@ all unit-tested.
 2. Implement `Rng` (xoshiro) — used by sim driver.
 3. Implement `deriveSeed(matchSeed, id)` via FNV-1a 64-bit.
 4. Implement `toFixed`, `fromFixed`, `fmul`, `fdiv`, `clamp`.
-5. Implement `fsin`, `fcos`, `fatan2` (latter uses Math but converts
-   immediately; flagged display-only).
+5. Implement `fsin`, `fcos`, `fatan2` — all three via the fixed
+   lookup tables only (no `Math.*` calls in sim paths; `atan2` affects
+   gameplay through `aim`, so it must be table-driven per
+   `10-DETERMINISM.md` § 2.2).
 6. Build `SIN_TABLE` with 4096 entries once at module load.
 7. Tests must verify: same seed → same 10k outputs; `fsin(0) = 0`,
    `fsin(π/2) ≈ 65536`; `fatan2(0, -1) ≈ 32768`.
@@ -222,7 +224,7 @@ Spec:
 - spec-kit/09-AI-DSL.md § 6 (math rules for the VM)
 
 Implement (in /simulator/src/):
-- rng.ts: Mulberry32, Rng (xoshiro128**), deriveSeed
+- rng.ts: Mulberry32, Rng (xoshiro256**), deriveSeed
 - fixed.ts: Q16.16 helpers (toFixed, fromFixed, fmul, fdiv, clamp,
   fsin, fcos, fatan2, dist, dist2)
 - vec.ts: 2D vector helpers
@@ -247,7 +249,7 @@ Acceptance: pnpm test passes, coverage ≥ 90% on the new files.
 Data-driven parts catalog from `04-GAME-DESIGN.md` § 3.
 
 ### 5.2 Tasks
-- **T03.1** — `parts.ts`: full catalog (15 parts in MVP).
+- **T03.1** — `parts.ts`: full catalog (16 parts in MVP).
 - **T03.2** — `chassis.ts`: chassis limits + aggregation.
 - **T03.3** — JSON schema for parts (so balance patches can ship
   JSON not TS).
@@ -260,9 +262,9 @@ Data-driven parts catalog from `04-GAME-DESIGN.md` § 3.
    expected stats for a sample chassis.
 
 ### 5.4 Definition of done
-- All 15 MVP parts present with correct mass/power/effect strings.
-- `aggregate()` matches a hand-computed test case for the sample
-  chassis in `04-GAME-DESIGN.md` § 3.4.
+- All 16 MVP parts present with correct mass/power/effect strings.
+- `aggregate()` matches a hand-computed test case for a sample
+  chassis (e.g. the four-part chassis in § 5.5 below).
 - `validateChassis()` rejects mass > 50, power > 80, slot count > 8.
 
 ### 5.5 AI agent context
@@ -279,7 +281,7 @@ Implement (in /simulator/src/):
 
 Tests:
 - parts.test.ts: every spec'd part exists; aggregate of
-  [mk2_engine, radar_long, blaster, solar] yields
+  [mk2_engine, long_radar, blaster, solar] yields
   {topSpeed: 4000, radarRange: 80000, damagePerHit: 12, ...}
 
 NEVER mutate PARTS_BY_ID; treat as readonly.
@@ -470,7 +472,7 @@ Sensor builtins query the world snapshot deterministically.
 Phase 07: Sensors.
 
 Spec:
-- spec-kit/09-AI-DSL.md § 4.1 (sensor API)
+- spec-kit/09-AI-DSL.md § 2.2 (sensor builtins)
 - spec-kit/04-GAME-DESIGN.md § 4.1 (sensor behaviour)
 
 Implement (in /simulator/src/env.ts + update vm.ts):
@@ -517,7 +519,7 @@ Actuator builtins accumulate intent; later applied by the match driver.
 Phase 08: Actuators.
 
 Spec:
-- spec-kit/09-AI-DSL.md § 4.2 (actuator API)
+- spec-kit/09-AI-DSL.md § 2.2 (actuator builtins)
 - spec-kit/04-GAME-DESIGN.md § 3 (parts they reference)
 
 Implement (in /simulator/src/vm.ts + new src/actuators.ts):
@@ -562,7 +564,7 @@ Bot struct + per-tick stepping helper.
 Phase 09: Bot State.
 
 Spec:
-- spec-kit/04-GAME-DESIGN.md § 3.3 (HP, energy, biomass)
+- spec-kit/04-GAME-DESIGN.md § 3.1 (HP formula), § 3.2 (energy parts)
 - spec-kit/09-AI-DSL.md § 6 (BotEnv construction)
 
 Implement (in /simulator/src/bot.ts):
@@ -646,7 +648,8 @@ Hitscan weapons, damage application, death, biomass-on-kill.
 2. For each fire: raycast from `bot.x, bot.y` along `bot.angle` for
    `fireRange` mm; find first hit within `perp ≤ 1000 mm`.
 3. Apply `damagePerHit` to hit bot's HP.
-4. If HP ≤ 0: emit `death`, transfer 10 biomass to killer.
+4. If HP ≤ 0: emit `death`, transfer 10 biomass to killer (kill
+   bounty per `04-GAME-DESIGN.md` § 6).
 5. Bot's `fireCooldown = fireRate`.
 
 ### 13.4 Definition of done
@@ -740,7 +743,8 @@ Passive energy regen, shield regen, starvation death.
 1. Energy regen = `energyGen / 60` per tick (integer floor).
 2. Power drain = `max(0, totalPower) / 60`.
 3. Shield regen = `shieldRegen / 60` (Q16.16).
-4. If energy ≤ 0 and biomass > 0: convert 5 biomass → 5 energy,
+4. If energy ≤ 0 and biomass > 0: convert 10 biomass → 5 energy
+   (same rate as the `eat` actuator in `04-GAME-DESIGN.md` § 4.2),
    emit `eat` event.
 5. If energy ≤ 0 and biomass ≤ 0: bot dies (`cause: 'starvation'`).
 
@@ -779,7 +783,9 @@ Event log + golden-match CI test.
 - **T16.1** — `EventLog` class with per-tick buckets.
 - **T16.2** — Emit all event kinds from spec.
 - **T16.3** — `outputSha256(events, finalState)`.
-- **T16.4** — Golden match file (`fixtures/golden-drifter-vs-breeder.json`).
+- **T16.4** — Golden match fixtures (`fixtures/*.json`: Pebble vs
+  Drifter, Drifter vs Breeder, Swarm-Mind vs Reaper — per
+  `19-STARTER-BOTS-AND-LIBRARY.md` § 5).
 - **T16.5** — CI test: replay hash matches golden.
 
 ### 16.3 Sub-tasks

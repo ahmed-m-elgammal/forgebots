@@ -188,10 +188,10 @@ Concrete numbers, not vibes. CI must catch regressions.
 ### 9.1 How we measure
 
 - **In-engine:** Godot's built-in profiler on debug builds.
-- **On device:** Firebase Performance + custom Godot exporter.
+- **On device:** Sentry performance tracing + custom Godot exporter.
 - **In CI:** a smoke scene runs every PR; if draw calls or texture
   memory regresses > 10% vs main, the PR fails.
-- **In production:** weekly report from Firebase; alert if any budget
+- **In production:** weekly report from Sentry; alert if any budget
   is exceeded by 20% for 2 consecutive weeks.
 
 ### 9.2 Thermal handling

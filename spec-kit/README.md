@@ -57,6 +57,8 @@ classic Grobots (Devon & Warren Schudy, GPL).
   but matter for whether players stay.
 - **Docs 19–20** are the *execution layer*. 19 is what we ship
   pre-built; 20 is how we build the engine.
+- **Doc 21** is the *launch-readiness layer*: localization (EN+AR) and
+  push notifications.
 
 | Doc | Owns |
 |---|---|
@@ -91,8 +93,9 @@ forgebots/
 
 ## Status
 
-- Spec kit: **v0.4** (added localization pipeline + push notification
-  strategy; EN+AR launch ready).
+- Spec kit: **v0.5** (cross-document consistency pass: match-length
+  arithmetic, bot-slot caps, ghost-bot sourcing, DSL builtin + part-ID
+  alignment, EN+AR launch alignment, dangling section refs repaired).
 - Implementation: **not started** (deferred per planning phase).
 
 Last updated: 2026-09-27.

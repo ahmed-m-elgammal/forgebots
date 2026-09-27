@@ -65,7 +65,7 @@ A **season** is a 12-week window during which:
 |---|---|---|
 | Hotfix | < 24 h | Crash, server outage, balance emergency |
 | Patch | 1 week | Number tunings, new cosmetics, bug fixes |
-| Season | 4 weeks | New arena, new AI opponent, ladder reset |
+| Season | 12 weeks | New arena, new AI opponent, ladder reset (see § 1.1–1.2) |
 
 ### 2.3 Balance patches
 
@@ -128,6 +128,7 @@ New events are additive; old events are kept forever (no removal).
 | D7 | 22% |
 | D30 | 12% |
 | 90-day rolling | 8% |
+| First-loss bounce-back (D7 of players who lose their first PvP, vs those who quit — see `15-RISKS.md` § 9.2) | tracked; intervene if the 3× lift disappears |
 
 #### Engagement
 | KPI | Target |
@@ -211,7 +212,7 @@ We ship four Grafana boards:
 | Channel | Cadence | Audience |
 |---|---|---|
 | In-app banner | At season launch + at every patch | All players |
-| Push notification | Once per week max | All opted-in |
+| Push notification | Per-channel caps, ≤ 3/week global (`match_ready` exempt) — see `21-LOCALIZATION-AND-NOTIFICATIONS.md` § 2.4 | All opted-in |
 | Discord | Daily | Community |
 | Email | Monthly digest + season wrap | Account-holders with email |
 | Twitter/X | 3× per week | Followers |

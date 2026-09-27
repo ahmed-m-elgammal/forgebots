@@ -64,7 +64,7 @@ on every platform, including the editor preview. We support
 ### 2.6 Server-authoritative sandbox
 
 Player code never executes on a third-party machine in source form.
-It compiles to **ForgeBots IR** (a constrained SSA-like bytecode), which
+It compiles to **ForgeBots IR**, then to a constrained bytecode, which
 runs in a **tick-budgeted VM** on the server. Each robot gets a
 hard cycles/tick limit (default 1000) and a hard stack cap.
 

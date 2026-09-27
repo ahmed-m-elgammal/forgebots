@@ -32,9 +32,17 @@ spec-kit/
 ├── 13-UI-UX-WIREFRAMES.md     ← every screen
 ├── 14-MONETIZATION.md         ← cosmetics, no pay-to-win
 ├── 15-RISKS.md                ← RAG-rated
+├── 16-JUICE-AND-AUDIO.md      ← motion language, hit-stop, SFX + music
+├── 17-ONBOARDING.md           ← first-60-seconds, mission ladder
+├── 18-LIVE-OPS-AND-TELEMETRY.md ← seasons, KPIs, telemetry
+├── 19-STARTER-BOTS-AND-LIBRARY.md ← 8 starter bots + pattern library
+├── 20-IMPLEMENTATION-PLAN.md  ← 14-phase engine build plan
+├── 21-LOCALIZATION-AND-NOTIFICATIONS.md ← EN+AR pipeline, push strategy
 └── examples/
     ├── sample-bot.fb          ← reference bot in the DSL
-    └── drifter.fb             ← AI opponent template
+    ├── drifter.fb             ← AI opponent template
+    ├── pouncer.fb             ← AI opponent template
+    └── breeder.fb             ← AI opponent template
 ```
 
 ## Quick pitch
@@ -59,11 +67,9 @@ The spec kit is released under **CC-BY 4.0** — share, remix, attribute.
 ```
 Copyright 2026 Ahmed Elgammal / ForgeBots contributors
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
+Licensed under Creative Commons Attribution 4.0 International (CC-BY 4.0):
+you are free to share and adapt this spec kit with attribution.
+https://creativecommons.org/licenses/by/4.0/
 ```
 
 (When implementation starts, the simulator and server will be
@@ -71,6 +77,6 @@ proprietary; client may go MIT at v1.0.)
 
 ## Status
 
-- Spec kit: **complete (v0.1)**
+- Spec kit: **complete (v0.5)** — cross-document consistency pass applied
 - Implementation: **not started**
 - Last updated: 2026-09-27

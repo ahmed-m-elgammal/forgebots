@@ -77,7 +77,8 @@ The MVP is shippable when ALL of these are true:
 - [ ] The replay is byte-identical when re-run with the same seed
 - [ ] A user can submit bots that compile, run, and play through 1500
   ticks deterministically
-- [ ] Three AI opponents are unbeatable-by-default (lose to starter bot)
+- [ ] Three AI opponents are beatable by default (each loses to at
+  least one starter bot in its tier tests — see `19-STARTER-BOTS-AND-LIBRARY.md` § 2)
 - [ ] Elo updates correctly after each match
 - [ ] iOS TestFlight build installs and runs on an iPhone 12
 - [ ] Android internal track installs and runs on a Pixel 5

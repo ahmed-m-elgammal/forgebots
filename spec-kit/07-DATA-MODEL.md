@@ -51,7 +51,6 @@ create table forgebots.bots (
   owner_id        uuid not null references forgebots.users(id) on delete cascade,
   name            text not null check (length(name) between 1 and 32),
   chassis_json    jsonb not null,             -- { types: [{ hardware: [...], code_ir: {...} }] }
-  code_ir         jsonb not null,             -- top-level IR (one per bot)
   code_version    int  not null default 1,
   elo             int  not null default 1000,
   wins            int  not null default 0,
@@ -66,9 +65,30 @@ create index bots_owner_idx on forgebots.bots (owner_id);
 create index bots_elo_idx   on forgebots.bots (elo desc) where is_public;
 ```
 
-`chassis_json` and `code_ir` are validated server-side before insert. A
-bot has up to 3 robot types in MVP, each with a hardware list and a
-compiled IR program.
+`chassis_json` (including each robot type's `code_ir`) is validated
+server-side before insert. A bot has up to 3 robot types in MVP, each
+with a hardware list and a compiled IR program. There is deliberately
+**no** top-level `code_ir` column: the program lives per robot type
+inside `chassis_json` (a side can have 1–3 types — see `04-GAME-DESIGN.md` § 6).
+
+#### 2.3.1 `bot_versions`
+
+Save-history for bots. Backs the "save unlimited previous versions"
+Forge Pass perk (`14-MONETIZATION.md` § 2.2) and the `code_version`
+counter bumped by `PATCH /bots/{id}` (`08-API-SURFACE.md` § 3).
+Free-tier retention caps are enforced app-side, not in the schema.
+
+```sql
+create table forgebots.bot_versions (
+  id            uuid primary key,
+  bot_id        uuid not null references forgebots.bots(id) on delete cascade,
+  code_version  int  not null,
+  chassis_json  jsonb not null,
+  created_at    timestamptz not null default now()
+);
+
+create index bot_versions_bot_idx on forgebots.bot_versions (bot_id, code_version desc);
+```
 
 ### 2.4 `matches`
 
@@ -97,6 +117,13 @@ create index matches_status_idx   on forgebots.matches (status, created_at);
 create index matches_player_idx   on forgebots.matches (p1_id, created_at desc);
 create index matches_player2_idx  on forgebots.matches (p2_id, created_at desc);
 ```
+
+**Ghost opponents.** The matchmaking fallback (`08-API-SURFACE.md` § 4)
+pits players against starter-bot ghosts (`19-STARTER-BOTS-AND-LIBRARY.md`
+§ 5). Ghosts are stored as `bots` rows owned by a reserved system user,
+so `p2_id` / `p2_bot_id` stay NOT NULL. Ghost Elo is tracked but ghosts
+are excluded from the public ladder (`is_public = false` — the ladder
+index only scans public bots).
 
 ### 2.5 `replays`
 
@@ -208,6 +235,7 @@ The API sets `app.user_id` per request via `SET LOCAL` in a transaction.
 | matches | (status, created_at), (p1_id, created_at desc), (p2_id, created_at desc) | queue scan, history |
 | replays | unique(match_id) | 1-to-1 with match |
 | elo_history | (bot_id, created_at desc) | bot stats page |
+| bot_versions | (bot_id, code_version desc) | save history |
 
 ## 5. Migration policy
 
@@ -223,7 +251,8 @@ The API sets `app.user_id` per request via `SET LOCAL` in a transaction.
 
 - **Daily logical dump** via `pg_dump`. Stored in object storage for
   30 days.
-- **Replays older than 90 days** can be pruned (config). User-exported
+- **Replays older than 90 days** can be pruned (config; bookmarked
+  replays are exempt — see `13-UI-UX-WIREFRAMES.md` § 14.4). User-exported
   replays are kept forever in the user archive bucket.
 - **PII** (email) is hashed at rest if user requests account deletion
   via a "soft delete" flag; hard-delete is GDPR-friendly.

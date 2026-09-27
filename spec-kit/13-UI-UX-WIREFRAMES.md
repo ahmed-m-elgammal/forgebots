@@ -77,7 +77,7 @@
 │         (40 kg / 68 W left) │
 │                             │
 │ Preview  [show chassis]     │
-│ HP: 35   Speed: 2.5 m/s     │
+│ HP: 15   Speed: 2.5 m/s     │
 └─────────────────────────────┘
 
 Tap an empty slot → bottom sheet of part picker.
@@ -333,7 +333,9 @@ for players above 50 matches.
 
 ### 14.4 Sharing
 
-- **Share link:** generates a public URL, server stores replay for 30 days.
+- **Share link:** generates a public URL, public-read for 30 days
+  (replay retention per `07-DATA-MODEL.md` § 6: 90-day prune, bookmarks
+  exempt).
 - **Bookmark:** adds to "My Replays" list, kept forever.
 - **GIF export:** client-side rendering of the replay to a 5–10s GIF,
   capped at 5 MB.
