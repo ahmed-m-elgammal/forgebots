@@ -305,6 +305,92 @@ superseded Flutter marketing-site note lives in git history and in
   eating with a full pool burns the batch; and 23 § 8.1's movement
   before hitscan supersedes 20 Phase 12.3's combat-first prose (the
   Phase 4 combat-then-vitality wiring is unchanged).
+- `src/telemetry/` — Phase 5 task 8.2 (23 § 8.2): the replay half of the
+  phase. Owns the wire vocabulary, the EventLog sink, the replay
+  document and `output_sha256`; imports nothing outside itself (06 §
+  5.2) — match/'s record stream reaches it through structural views
+  (`views.ts`, the Damageable seam pattern: the field names are the
+  contract, so `runMatch(sides, config, eventLog)` typechecks with
+  neither context importing the other).
+  - `eventKinds.ts` — the one enum: 17 wire kinds of 11 § 4 as a const
+    map plus the `ReplayEvent` wire union (snake_case fields, `"t"`
+    duplicating the tick-bucket index). `death.cause`, `eat.reason` and
+    `vm_yield.reason` flow through as the strings their owning contexts
+    stamped — the closed vocabularies live upstream (06 § 5.2 forbids
+    one shared map).
+  - `fxTable.ts` — the 16 § 2.3 declarative fx table over every kind:
+    `Record<EventKind, FxEntry>` makes a missing kind a compile error,
+    the fxTable test re-checks at runtime (the 11 § 4 completeness
+    contract), the three spec-pinned entries are verbatim (shot →
+    muzzle_sparks/blaster_fire, death → explosion/death + hitStopMs 80,
+    biomass_taken → sparkles/biomass_pickup), `'none'` records a
+    deliberate no-juice decision, and the juice phase (18) extends this
+    table rather than forking a second one.
+  - `eventLog.ts` — the MatchSink: per-tick buckets gap-filled to the
+    streamable `events` array of 11 § 3/§ 5 (tick 0 empty by
+    construction, `"t"` equal to the bucket index), and D10's
+    change-only `move`/`aim` — emitted only when the value differs from
+    the robot's last EMITTED value (the first value always passes; a
+    bot re-issuing `(move 65536 0)` every tick emits one event —
+    integration-pinned: 300 records in, 1 event out). Ticks arrive in
+    order or the log throws; `eventsUpTo(finalTick)` is a pure read
+    handing out fresh arrays. build_start/birth resolve the design NAME
+    from the side lists in the config, parsing only the spec-frozen
+    `p1.`/`p2.` id prefix (design names may contain dots).
+  - `canonical.ts` — canonical JSON (JCS behaviour for the replay's
+    value domain): keys sorted by code unit, no whitespace, integers
+    only (floats, NaN, bigint, class instances and collections throw at
+    the edge — a non-integer in the hash input is a determinism bug
+    upstream, not a rounding question), `-0` normalised, `localeCompare`
+    never touched.
+  - `sha256.ts` — SHA-256 in pure integer TypeScript (shifts, rotates,
+    `(a + b) | 0`; 64-bit length field split by shifts). Bit-identical
+    on every platform by construction, which is the point: 8.3's golden
+    hash must agree on Linux, macOS and Windows. NIST vectors +
+    node:crypto cross-checks over the padding boundaries (55/56, exact
+    block multiples).
+  - `outputSha256.ts` — the composition of 11 § 2.1 / 10 § 5:
+    sha256(seed_bytes ‖ balance_sha256_bytes ‖ canonical(final_state) ‖
+    canonical(events)). Two byte encodings are pinned here: the seed is
+    minimal unsigned big-endian with zero as ONE 0x00 byte, and the
+    balance hash is the hex DECODED to 32 raw bytes (so the digest
+    cannot depend on the server's hex casing). Seeds are uint64-
+    validated; the embedded `output_sha256` is structurally excluded
+    from its own input — the builder hashes the parts before the
+    document exists.
+  - `replay.ts` — `buildReplayDocument` assembles the full 11 § 2 shape
+    (version 1, sim_version, hex seed, balance reference, both players'
+    exact designs as {name, parts, code}, tick-grouped events, canonical
+    final state, output_sha256), stamps `match_end` once at the last
+    tick from the result's winner/reason, and validates at the boundary
+    (empty ids, fractional durations, malformed hashes, one-player
+    lists, forged design payloads). The final state carries every
+    robot's scalars with `alive` (a survivor and a corpse with the same
+    scalars must not hash alike) plus the standing cell indices 8.1
+    reserved for exactly this hash. `duration_ms` is the caller's
+    wall-clock metadata: the simulator keeps no clock (G22/G35), and the
+    hash never reads it.
+  - Tests: 107 in telemetry/ (eventLog 25, outputSha256 18, replay 19 +
+    barrel, canonical 17, sha256 13, fxTable 6, integration 8) — six
+    dimensions per function, every digest cross-checked against
+    node:crypto or hand-assembled byte concats so the tests cannot
+    inherit a bug from the code they check. The integration tier runs
+    real matches through the sink seam: kinds ⊆ enum, `t` = bucket
+    index, snapshot cadence tick 1 + every 30 through the wire, the D10
+    compression pin, draw_tie at the 1500 cap with a gap-filled final
+    bucket and zero unintentional `vm_yield`s, and byte-identical
+    documents (hash included) for repeated runs of the same seed.
+- Documented decisions awaiting the owner from 8.2 (spec edits for
+  approval, not applied): the `damage` wire event carries `x`/`y`
+  although 11 § 4 lists them as neither required nor optional — 16 §
+  2.3 renders events by "kind + position" and a splash without a centre
+  cannot place its blast (to_hull and killed stay engine-side: to_hull
+  is amount − to_shield, killed is the following death event's job);
+  the fx table lives in telemetry/ until the juice phase, keyed by the
+  wire kinds, so the completeness test and the future consumer share
+  one table (rule 14); the seed's zero encoding (one 0x00 byte) and the
+  balance hash's raw-bytes encoding are telemetry's to pin because 11 §
+  2.1 fixes the concat but not the byte forms.
 
 
 ## Commands

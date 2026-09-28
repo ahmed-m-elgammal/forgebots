@@ -6,7 +6,12 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.test.ts'],
+      exclude: [
+        'src/**/*.test.ts',
+        // Pure type declarations — the structural seam views have no
+        // runtime to cover (telemetry/views.ts).
+        'src/telemetry/views.ts',
+      ],
       thresholds: {
         lines: 90,
         branches: 90,
