@@ -21,6 +21,12 @@
 // combat kill's literal lives in combat/damage.ts; the import rule
 // forbids sharing one map, so each context owns the cause it emits).
 //
+// The player-issued eat (04 § 4.2: "convert carried biomass to energy,
+// 10 biomass → 5 energy") is the same batch, requested instead of
+// automatic; match/ calls convertCarriedBiomass for it and stamps the
+// eat record's reason, since the reason — player or starvation — is the
+// caller's distinction, not the arithmetic's.
+//
 // Context note: vitality/ may import only math/ and itself (06 § 5.2),
 // so EnergizedRobot is structural — robot/Robot satisfies it without
 // either context importing the other. The tick order this function
@@ -95,18 +101,30 @@ function floorDiv(numerator: number, denominator: number): number {
   return quotient;
 }
 
-// The 10:5 ratio, floored to whole units: a 3-biomass scrape buys 1
-// energy, a 1-biomass scrape buys 0 and the robot dies having burned its
-// last biomass — brutal, but the pool never goes fractional.
-function tryEmergencyConversion(robot: EnergizedRobot): EmergencyConversionRecord | null {
+// One 10:5 conversion batch, floored to whole units: a 3-biomass scrape
+// buys 1 energy, a 1-biomass scrape buys 0 — brutal, but the pool never
+// goes fractional. The gain clamps at the pool's ceiling: a batch into a
+// nearly-full pool keeps what fits and burns the rest, exactly like a
+// clamp at the top of drainEnergyForTick — the caller's job to check
+// self.energy first. Both the player-issued eat and the automatic
+// emergency conversion run this one arithmetic (G5).
+export function convertCarriedBiomass(robot: EnergizedRobot): EmergencyConversionRecord | null {
   if (robot.biomassCarried <= 0) {
     return null;
   }
   const consumed = robot.biomassCarried < EMERGENCY_CONVERSION_BIOMASS ? robot.biomassCarried : EMERGENCY_CONVERSION_BIOMASS;
   robot.biomassCarried -= consumed;
   const gained = (consumed / 2) | 0;
-  robot.energyMilli += gained * MILLI_PER_ENERGY;
+  const charged = gained * MILLI_PER_ENERGY;
+  const headroom = robot.energyMaxMilli - robot.energyMilli;
+  robot.energyMilli += charged < headroom ? charged : headroom;
   return { botId: robot.id, consumedBiomass: consumed, gainedEnergy: gained };
+}
+
+// The emergency conversion of D6: the automatic batch when the pool is
+// empty. Same arithmetic as the player-issued eat, different trigger.
+function tryEmergencyConversion(robot: EnergizedRobot): EmergencyConversionRecord | null {
+  return convertCarriedBiomass(robot);
 }
 
 // One tick of the milliwatt accumulator plus the starvation chain:

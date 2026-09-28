@@ -70,6 +70,13 @@ export interface Robot {
   weaponCooldowns: number[];
   biomassCarried: number;
   alive: boolean;
+  // The two seam fields combat/'s structural views read at the top level
+  // (Combatant.weapons, Damageable.carryCapacity). They mirror stats so a
+  // robot is ONE object across contexts — a copied adapter would fork the
+  // mutable pools, so the fields live here at spawn (the header's contract:
+  // robot/ owns state, combat/ and vitality/ own policy).
+  readonly weapons: ChassisStats['weapons'];
+  readonly carryCapacity: number;
   // This robot's own rng-int stream (D5): seeded from the match seed and
   // this robot's identity, advanced by nothing but its own rng-int reads.
   readonly rng: Rng;
@@ -158,6 +165,8 @@ export function spawnRobot(args: SpawnRobotArgs): Robot {
     weaponCooldowns: stats.weapons.map(() => 0),
     biomassCarried: 0,
     alive: true,
+    weapons: stats.weapons,
+    carryCapacity: stats.carryCapacity,
     rng: createBotRng(args.seed, args.side, args.designIndex, args.robotIndex),
   };
 }

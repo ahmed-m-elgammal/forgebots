@@ -4,6 +4,7 @@ import {
   EMERGENCY_CONVERSION_BIOMASS,
   EMERGENCY_CONVERSION_ENERGY,
   TICKS_PER_SECOND,
+  convertCarriedBiomass,
   drainEnergyForTick,
   type EnergyTickResult,
   type EnergizedRobot,
@@ -200,6 +201,60 @@ describe('the starvation chain (D6, 20 Phase 13 steps 4-5)', () => {
     const run = (): string => {
       const robot = makeRobot({ id: 'starver', energyMilli: 0, biomassCarried: 3 });
       return JSON.stringify(drainEnergyForTick(robot, 0));
+    };
+    expect(run()).toBe(run());
+  });
+});
+
+describe('convertCarriedBiomass — the player-issued eat batch (04 § 4.2, Phase 5)', () => {
+  it('[normal] a full batch converts 10 biomass into exactly 5 energy', () => {
+    const robot = makeRobot({ energyMilli: 100000, biomassCarried: 25 });
+    const record = convertCarriedBiomass(robot);
+    expect(record).toEqual({ botId: 'robot', consumedBiomass: 10, gainedEnergy: 5 });
+    expect(robot.biomassCarried).toBe(15);
+    expect(robot.energyMilli).toBe(105000);
+  });
+
+  it('[boundary] a partial batch floors the ratio: 9 buys 4, 3 buys 1, 1 buys 0', () => {
+    const nine = makeRobot({ id: 'nine', energyMilli: 0, biomassCarried: 9 });
+    expect(convertCarriedBiomass(nine)).toEqual({ botId: 'nine', consumedBiomass: 9, gainedEnergy: 4 });
+    expect(nine.energyMilli).toBe(4000);
+    const three = makeRobot({ energyMilli: 0, biomassCarried: 3 });
+    expect(convertCarriedBiomass(three)).toEqual({ botId: 'robot', consumedBiomass: 3, gainedEnergy: 1 });
+    const one = makeRobot({ energyMilli: 0, biomassCarried: 1 });
+    expect(convertCarriedBiomass(one)).toEqual({ botId: 'robot', consumedBiomass: 1, gainedEnergy: 0 });
+    expect(one.energyMilli).toBe(0);
+  });
+
+  it('[invalid] no carry is no conversion, and the pool is untouched', () => {
+    const robot = makeRobot({ energyMilli: 123000, biomassCarried: 0 });
+    expect(convertCarriedBiomass(robot)).toBe(null);
+    expect(robot.energyMilli).toBe(123000);
+  });
+
+  it('[state] the gain clamps at the pool ceiling: the overflow is burned, never banked', () => {
+    const robot = makeRobot({ energyMilli: 499000, energyMaxMilli: 500000, biomassCarried: 10 });
+    const record = convertCarriedBiomass(robot);
+    expect(record).toEqual({ botId: 'robot', consumedBiomass: 10, gainedEnergy: 5 });
+    expect(robot.energyMilli).toBe(500000);
+  });
+
+  it('[repeat] repeated calls convert batch after batch until the carry runs dry', () => {
+    const robot = makeRobot({ energyMilli: 0, biomassCarried: 22 });
+    expect(convertCarriedBiomass(robot)!.consumedBiomass).toBe(10);
+    expect(convertCarriedBiomass(robot)!.consumedBiomass).toBe(10);
+    const last = convertCarriedBiomass(robot);
+    expect(last!.consumedBiomass).toBe(2);
+    expect(last!.gainedEnergy).toBe(1);
+    expect(convertCarriedBiomass(robot)).toBe(null);
+    expect(robot.biomassCarried).toBe(0);
+    expect(robot.energyMilli).toBe(11000);
+  });
+
+  it('[determinism] the same inputs produce the same record twice', () => {
+    const run = (): string => {
+      const robot = makeRobot({ id: 'eater', energyMilli: 250000, biomassCarried: 7 });
+      return JSON.stringify(convertCarriedBiomass(robot));
     };
     expect(run()).toBe(run());
   });

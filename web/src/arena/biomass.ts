@@ -152,14 +152,20 @@ export class BiomassField {
 
   // Fires every unit due at `tick` (or overdue, defensively), in FIFO
   // order, each landing on a free slot of its own region via the caller's
-  // rng. Called once per tick with the runtime matchRng (D5).
-  respawnDueCells(tick: number, rng: Rng): void {
+  // rng. Called once per tick with the runtime matchRng (D5). Returns the
+  // cells that came back this call, in firing order — the match loop's
+  // biomass_spawn records read their positions from it.
+  respawnDueCells(tick: number, rng: Rng): BiomassCell[] {
+    const respawned: BiomassCell[] = [];
     while (this.pending.length > 0 && this.pending[0]!.dueTick <= tick) {
       const unit = this.pending.shift()!;
       const candidates = this.slotsByRegion[unit.region]!.filter((index) => !this.slots[index]!.available);
       const chosenIndex = candidates[rng.nextInt(candidates.length)] as number;
-      this.slots[chosenIndex]!.available = true;
+      const cell = this.slots[chosenIndex]!;
+      cell.available = true;
+      respawned.push(cell);
     }
+    return respawned;
   }
 
   // The nearest available cell within `range` of `position`, or null.

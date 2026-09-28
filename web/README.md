@@ -223,6 +223,89 @@ superseded Flutter marketing-site note lives in git history and in
   `damagePerHit`, `cooldownTicks`, `rangeMm` and `splashRadiusMm` must
   be ≥ 1 (a zero-cooldown weapon fires every tick and a zero-damage hit
   is a phantom event — catalog bugs, rejected at load, G4).
+- `src/match/` — Phase 5 task 8.1 (23 § 8.1): the tick loop with the
+  explicit total ordering, win conditions, and first-class deaths.
+  - `match.ts` — `runMatch(sides, config, sink?)`: the G31 skeleton
+    lives in one function (`runTick`): world (respawn, the D5 stream
+    before any bot steps) → actuators (VM steps in spawn order, intent
+    application: move/move-at throttle plans, aim, fire/eat flags,
+    build, say) → physics (accel-limited integration, arena clamp,
+    pillar pushout, construction) → combat (cooldowns → resolveAttacks →
+    volley → noteShieldDamage on shield damage) → biomass (contact
+    pickup within the robot radius, player eat batches, shield regen +
+    milliwatt drain + emergency conversion + starvation) → events → win
+    check. Records are a typed discriminated union (the shapes of
+    11 § 4, robot-attributed) handed to a `MatchSink` seam — telemetry/
+    (23 § 8.2) implements the replay document over it next phase; the
+    snapshot cadence (tick 1, then every 30 — 11 § 4) is the loop's.
+    Construction: cost = Σ part mass, paid up front from carried
+    biomass, duration = cost × 30 ticks (2 kg/s), caps (4 per design,
+    6 per side) count in-progress builds, a builder's death drops the
+    queue. `MatchResult` carries winner/reason/duration, every tick's
+    records, the 30-tick snapshots, final robot snapshots and the
+    standing cell indices.
+  - `winCondition.ts` — Eliminator (D18): last side with a living robot
+    wins (`elimination`); both extinct on the same tick is `draw_tick`;
+    at the cap more total carried biomass wins (`tick_cap_biomass`) and
+    a tie — both-zero included — is `draw_tie` (legacy/02 § 3.2's
+    anti-stall pressure: a hider cannot win the cap).
+  - `driver.ts` — the perception bridge: the VM's `VmEnv` answered from
+    the world. Self state in wire units (04 § 4.1), `time`, `rng-int`
+    on the robot's own stream (D5), and the five sensors: radar (part
+    range, allies included), scan (40 m/30° cone on the requested
+    angle), food (5 m, no part), ally/enemy (map-wide, team filtered).
+    D16 rate limiting: radar 1 Hz, scan/food 4 Hz, ally/enemy every
+    tick — a rate-limited sensor holds its last reading between
+    refreshes (a 1 Hz radar is up to 60 ticks stale). Option payloads
+    pack both millimetre coordinates into one exact integer
+    (x * 2^19 + y). Nearest queries are exact squared-BigInt comparisons
+    in spawn order, lowest index on ties, inclusive boundaries. The env
+    never throws (the sandbox contract). Moves to perception/ whole
+    when that context is scheduled.
+  - `movement.ts` — the throttle conversion until actuation/ is
+    scheduled: move/move-at set a target velocity ((throttle/65536) ×
+    top speed, clamped ±65536 per axis, move-at full at ≥ 1 000 mm and
+    tapering to 0 at the point, zero-distance guard coasts), velocity
+    approaches the target by at most topSpeed × accelPermyriad/10000/60
+    per tick (top speed reached in exactly one second at base accel;
+    the hover unit's +30 % spools faster), and a no-command tick decays
+    velocity under the same bound — that decay is friction, so
+    `ignoresFriction` is the right to keep momentum when idle. The DoD
+    is pinned: no actuator exceeds the chassis top speed, ever.
+  - Cross-context extensions (rule 14 — modified, not forked):
+    `robot/robot.ts` gains the seam fields `weapons` and
+    `carryCapacity` (a Robot is ONE object satisfying combat's
+    Combatant/Damageable views), `arena/biomass.ts`'s
+    `respawnDueCells` returns the cells that came back (the
+    biomass_spawn records), and `vitality/energy.ts` exports
+    `convertCarriedBiomass` — the one 10:5 batch arithmetic shared by
+    the player-issued eat and the D6 emergency conversion (the gain
+    clamps at the pool ceiling).
+  - Tests: 100 in match/ (driver 32, movement 21, winCondition 16,
+    match 20, construction 5, pipeline 6) plus extensions to the
+    robot/vitality suites — six dimensions per
+    function, and the pipeline tests assert the G31 ordering through
+    public behaviour: every tick's records read as stage blocks in
+    pipeline order; the world's respawn lands at deplete + 300 as the
+    FIRST record of its tick in the source cell's region; the killing
+    shot records a position one tick's travel (≈ 41.7 mm) past the last
+    snapshot (physics before hitscan — 0 mm would mean hitscan ran
+    first); a bot's rng-int sequence is identical against a 1-robot and
+    a 3-robot opposing side (D5 stream separation).
+- Documented decisions awaiting the owner (spec edits for approval, not
+  applied): the movement model (accel bound = top speed per second,
+  friction = the idle decay the hover unit ignores) — 04 § 3.2 defers
+  both to "the physics phase"; build payment is up front (04 § 3.2.1
+  fixes cost and rate but neither pausing nor refunds); pickup is
+  contact-based within the collision radius, one cell per robot per
+  tick (the DSL has no take actuator; D15 makes depleted and picked up
+  one event; Mission 1's model is walking to the food); a design may
+  field zero starting robots as a constructor blueprint (a side must
+  still field at least one robot); `eat` clamps at the pool ceiling —
+  eating with a full pool burns the batch; and 23 § 8.1's movement
+  before hitscan supersedes 20 Phase 12.3's combat-first prose (the
+  Phase 4 combat-then-vitality wiring is unchanged).
+
 
 ## Commands
 

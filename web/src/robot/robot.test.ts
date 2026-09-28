@@ -58,6 +58,17 @@ describe('spawnRobot (20 Phase 09 spawn state)', () => {
     expect(robot.shieldRegenSuppressTicks).toBe(0);
   });
 
+  it('[state] exposes the combat seam fields at the top level (Phase 5 contract)', () => {
+    const robot = spawn();
+    expect(robot.weapons).toBe(robot.stats.weapons);
+    expect(robot.carryCapacity).toBe(robot.stats.carryCapacity);
+    const hauler: Design = {
+      name: 'hauler',
+      chassis: { parts: [PART_ID.mk1Engine, PART_ID.storage, PART_ID.storage] },
+    };
+    expect(spawn({ design: hauler }).carryCapacity).toBe(75);
+  });
+
   it('[state] one cooldown slot per fitted weapon, in design order', () => {
     const gunner: Design = {
       name: 'gunner',
