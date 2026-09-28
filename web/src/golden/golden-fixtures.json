@@ -1,0 +1,25 @@
+{
+  "$comment": [
+    "The web tier's golden hash fixtures (AGENTS.md § 4: reviewed like source).",
+    "Each entry records output_sha256 for one golden-seeds.json matchup over",
+    "the full 1500-tick run. A hash that changes without a deliberate",
+    "sim_version or balance bump fails the build; a hash edited by hand to",
+    "make a build pass is the failure mode this file cannot prevent.",
+    "",
+    "To record or re-record: run pnpm test and copy the hash from the",
+    "golden gate's failure message into hashes/<matchup id>.",
+    "",
+    "balance_version_id and balance_sha256 pin the balance these hashes",
+    "were recorded under: the parsed parts catalog (robot/parts.ts PARTS)",
+    "plus the default arena config (arena/geometry.ts), canonicalized and",
+    "hashed by golden/goldenMatches.ts goldenBalanceSha256()."
+  ],
+  "sim_version": "0.1.0",
+  "balance_version_id": 1,
+  "balance_sha256": "673174ffab7dc438133a7756c6734b9ebf954f63fa14442714303d2e4f79428b",
+  "hashes": {
+    "golden-1-pebble-vs-drifter": "a74287185ce28baf6798f44cad310a36792f1eb27deddd35aaf390b027d8a0a1",
+    "golden-2-drifter-vs-breeder": "545bfc3735defdf3473a231cf17a391801efebc23f0770e834fb900b17a9253e",
+    "golden-3-swarm-mind-vs-reaper": "6be6fec7a9e7adb7606d7e7699f17ddb2622925a8b05273bed223557f241ab2b"
+  }
+}

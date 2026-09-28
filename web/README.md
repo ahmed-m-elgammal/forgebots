@@ -380,6 +380,49 @@ superseded Flutter marketing-site note lives in git history and in
     compression pin, draw_tie at the 1500 cap with a gap-filled final
     bucket and zero unintentional `vm_yield`s, and byte-identical
     documents (hash included) for repeated runs of the same seed.
+- `src/golden/` — Phase 5 task 8.3 (23 § 8.3): the golden gate, the one
+  the plan calls the most important. Fixed seed → fixed `output_sha256`
+  over `golden-seeds.json`'s three matchups (pebble vs drifter, drifter
+  vs breeder, swarm-mind vs reaper), each run the full 1500 ticks —
+  integer maths was supposed to make the hash portable across Linux,
+  macOS and Windows (10 § 6); this phase proves it instead of assuming
+  it.
+  - `goldenMatches.ts` — the golden tier's composition root, the one
+    place a matchup legitimately crosses contexts: program/ compiles
+    the .fb sources, match/ runs the match, telemetry/ documents and
+    hashes it (06 § 5.2 forbids contexts importing match/, so the
+    composition lives outside every context, the role main.ts plays for
+    the server). The loader validates the seeds file at the edge —
+    uint64 `0x`-hex seeds, positive tick limit, ghost elo per bot — and
+    materializes sides eagerly: the chassis parsed from each source's
+    `;; Hardware` comment (the `solar` → `solar_panel` alias lives
+    there; duplicates keep their order — reaper stacks two blasters)
+    and the program compiled, so a broken fixture fails at load, not
+    mid-match. The balance fingerprint (`goldenBalanceSha256`) hashes
+    canonical JSON over the two balance inputs the simulator actually
+    consumes: the parsed catalog `PARTS` and `DEFAULT_ARENA_CONFIG` —
+    07 § 2.3's "full hardware catalog + arena layout".
+  - `golden-fixtures.json` — the recorded hashes, reviewed like source
+    (AGENTS.md § 4): the three `output_sha256` values from the first
+    deterministic run plus the balance fingerprint and `sim_version`
+    they were recorded under. The loader binds the file to the pinned
+    versions, so a moved fingerprint fails before any comparison can
+    mislead. To re-record: run the suite and copy the hash out of the
+    gate's failure message — a deliberate act, never a repair.
+  - `golden.test.ts` — the gate and its proof (35 tests): each
+    matchup's hash equals the fixture; the embedded hash recomputes
+    from the document's own parts via the public `outputSha256`; a
+    second and third full run reproduce the documents byte for byte,
+    hash included; a different seed changes the hash; every numeric
+    leaf in every document is an integer — the portability claim made
+    checkable in one environment; the outcome vocabulary agrees with
+    the final state it summarizes (elimination ⇔ the loser is extinct,
+    tick_cap_biomass ⇔ the winner carries strictly more); and the
+    heaviest path finishes with zero `vm_yield`s (20 Phase 20.1). The
+    loaders (seeds file, hardware comments, fixtures) are exercised
+    across all six dimensions at the edge.
+  - `testdata/no-chassis.fb` — a compiling program with no `;; Hardware`
+    comment; the loader must refuse it, and the refusal is the test.
 - Documented decisions awaiting the owner from 8.2 (spec edits for
   approval, not applied): the `damage` wire event carries `x`/`y`
   although 11 § 4 lists them as neither required nor optional — 16 §
@@ -391,6 +434,20 @@ superseded Flutter marketing-site note lives in git history and in
   one table (rule 14); the seed's zero encoding (one 0x00 byte) and the
   balance hash's raw-bytes encoding are telemetry's to pin because 11 §
   2.1 fixes the concat but not the byte forms.
+- Documented decisions awaiting the owner from 8.3 (spec edits for
+  approval, not applied): the web tier records the golden hashes in
+  `web/src/golden/golden-fixtures.json` while `golden-seeds.json`'s own
+  hash fields stay null — filling them is a spec-kit edit this phase did
+  not make (the fixture is code's half of the contract; the spec file
+  stays upstream); `balance_sha256` is pinned as sha256 over canonical
+  JSON of `{ catalog: PARTS, arena: DEFAULT_ARENA_CONFIG }` because 07 §
+  2.3 fixes balance_json's content ("full hardware catalog + arena
+  layout") but not its byte form, and the seeds file's `season-1-v1`
+  string maps to `balance_version_id` 1 (07 § 2.3's monotonic integer
+  within a season); `elo_after` equals `elo_before` in golden replays —
+  the simulator computes no Elo, the ladder is the server's job; ghost
+  players carry synthetic `ghost-<bot>` user ids, which is safe because
+  the players block is metadata the hash never reads.
 
 
 ## Commands

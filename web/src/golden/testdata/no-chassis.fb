@@ -1,0 +1,7 @@
+;; A compiling program that declares no ";; Hardware" chassis — the
+;; golden loader must refuse it: a golden bot without a chassis is a
+;; broken fixture, and the refusal is the test.
+(defn step []
+  (move 0 0))
+
+(every-tick step)
